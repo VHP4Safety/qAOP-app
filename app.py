@@ -1,3 +1,4 @@
+# === Import required packages ===
 from flask import Flask, render_template, request
 import numpy as np
 from scipy.integrate import odeint
@@ -9,11 +10,13 @@ import io
 import base64
 import re
 
+# === Initialize the Flask app ===
 app = Flask(__name__)
 
-# Load parameter estimates
+# === Load pre-calibrated parameter samples from file ===
 draws_df = pd.read_csv('./data/draws_cisDDNEC2024-08-05_11-21-18.csv')
 
+# === Randomly sample one parameter set from posterior draws ===
 def sample_random_iteration():
     sampled_row = draws_df.sample(1).iloc[0]
     return [
@@ -22,6 +25,7 @@ def sample_random_iteration():
         sampled_row['p'], sampled_row['h']
     ]
 
+# === ODE model defining the qAOP system ===
 def qAOP_model(y, t, dose, params):
     Q_api, Q_bas, Q_cell, Q_inter, DD, NEC = y
     N_cell, V_cell, F_outa, F_outb, F_inb, F_ina, V_api, V_bas, K_met = params[:9]
@@ -36,13 +40,16 @@ def qAOP_model(y, t, dose, params):
     
     return [dQ_api_dt, dQ_bas_dt, dQ_cell_dt, dQ_inter_dt, dDD_dt, dNEC_dt]
 
+# === Fixed model parameters (from experimental setup or calibration) ===
 fixed_params = [2e6, 2005, 1.24e4, 4.518e1, 2.304e4, 2.232e4, 1e12, 2e12, 3.024e4]
 
+# === Define initial conditions based on input dose ===
 def initial_conditions(dose):
     Q_api_0 = dose * 301.1 * 1e-15 * 1e12
     Q_bas_0 = dose * 301.1 * 1e-15 * 2e12
     return [Q_api_0, Q_bas_0, 0, 0, 0, 0]
 
+# === Run the ODE solver for a single simulation ===
 def run_qAOP_model(dose, simulation_time, sampled_params):
     params = fixed_params + sampled_params
     y0 = initial_conditions(dose)
@@ -65,6 +72,7 @@ def run_qAOP_model(dose, simulation_time, sampled_params):
     
 #    return dose, time, target
 
+# === Create histogram + KDE plot and return as base64 image ===
 def plot_distributions(values, label, color, time_index):
     fig, ax = plt.subplots()
     ax.hist(values[:, time_index], bins=30, density=True, alpha=0.6, color=color, edgecolor='black')
@@ -77,6 +85,7 @@ def plot_distributions(values, label, color, time_index):
     img.seek(0)
     return base64.b64encode(img.read()).decode('utf-8')
 
+# === Flask route: homepage + form processing ===
 @app.route("/", methods=["GET", "POST"])
 def index():
     result, img_data = None, None
@@ -84,6 +93,7 @@ def index():
 
     if request.method == "POST":
         try:
+            # Get inputs from HTML form
             dose = float(request.form.get("dose"))
             time = float(request.form.get("time"))
             target = request.form.get("target")
@@ -91,10 +101,12 @@ def index():
             result = "Please enter valid numeric values for dose and time."
             return render_template("index.html", result=result)
 
+        # Validate target
         if target not in ["DNA Damage", "Necrosis"]:
             result = "Please select a valid target variable."
             return render_template("index.html", result=result)
 
+        # Run Monte Carlo simulation (250 times) using sampled parameter sets
         necrosis_vals, dd_vals, t_vals = [], [], np.linspace(0, time, 100)
         for _ in range(250):
             params = sample_random_iteration()
@@ -105,7 +117,10 @@ def index():
         necrosis_vals = np.array(necrosis_vals)
         dd_vals = np.array(dd_vals)
 
+        # Get closest time point index
         idx = np.argmin(np.abs(t_vals - time))
+
+        # Extract and format result based on target type
         if target == "DNA Damage":
             mean_val = dd_vals[:, idx].mean()
             std_val = dd_vals[:, idx].std()
@@ -117,8 +132,9 @@ def index():
             result = f"Predicted Necrosis at {time:.1f} h for {dose:.1f} μM: Mean = {mean_val:.2f}%, Std = {std_val:.2f}%"
             img_data = plot_distributions(necrosis_vals, "Necrosis", "blue", idx)
 
+    # Render the web page with results (if any)
     return render_template("index.html", result=result, image=img_data)
 
-
+# === Run the Flask app (debug mode enabled) ===
 if __name__ == "__main__":
     app.run(debug=True)
