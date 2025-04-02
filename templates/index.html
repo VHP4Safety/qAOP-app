@@ -8,23 +8,41 @@
 <body>
     <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety Logo" class="center">
     <h2 class="subheader">This qAOP tool is under development</h2>
+
     <header>
         <h1>qAOP Prediction - Cisplatin-Induced Nephrotoxicity</h1>
     </header>
+
     <div class="container">
         <form method="POST">
-            <label for="dose">Dose (μM):</label>
-            <input type="number" name="dose" step="any" required value="50">
+            <label for="dose">
+                Dose (μM):
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
+                     alt="tooltip" width="12" height="12" 
+                     title="Enter the cisplatin dose in micromolar (μM). Example: 50"></sup>
+            </label><br>
+            <input type="number" name="dose" id="dose" step="any" required value="50"><br>
         
-            <label for="time">Time (hours):</label>
-            <input type="number" name="time" step="any" required value="24">
+            <label for="time">
+                Time (hours):
+                <img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
+                     alt="tooltip" width="12" height="12" 
+                     title="Enter the time after cisplatin exposure, in hours. Example: 24">
+            </label><br>
+            <input type="number" name="time" id="time" step="any" required value="24"><br>
         
-            <label for="target">Target:</label>
-            <select name="target" required>
+            <label for="target">
+                Target:
+                <img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
+                     alt="tooltip" width="12" height="12" 
+                     title="Choose which effect to predict: DNA Damage (EGs score) or Necrosis (% cell death).">
+            </label><br>
+            <select name="target" id="target" required>
                 <option value="">--Select--</option>
-                <option value="DNA Damage">DNA Damage</option>
-                <option value="Necrosis">Necrosis</option>
+                <option value="DNA Damage" {% if request.form.get('target') == 'DNA Damage' or not request.form.get('target') %}selected{% endif %}>DNA Damage</option>
+                <option value="Necrosis" {% if request.form.get('target') == 'Necrosis' %}selected{% endif %}>Necrosis</option>
             </select>
+            <br>
         
             <input type="submit" value="Run Simulation">
         </form>
@@ -32,10 +50,11 @@
         <h3>Result</h3>
         <p>{{ result }}</p>
         {% if image %}
-        <img src="data:image/png;base64,{{ image }}" alt="Distribution Plot" style="width:100%;">
+        <img src="data:image/png;base64,{{ image }}" alt="Distribution Plot" style="width:100%; max-width: 700px;">
         {% endif %}
         {% endif %}
     </div>
+
     <footer>
         <p class="footer-content">
             View the source code on&nbsp<a href="https://github.com/VHP4Safety/qAOP-predictor" target="_blank">GitHub</a>&nbsp
