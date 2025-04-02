@@ -21,28 +21,28 @@
                      alt="tooltip" width="12" height="12" 
                      title="Enter the cisplatin dose in micromolar (μM). Example: 50"></sup>
             </label><br>
-            <input type="number" name="dose" id="dose" step="any" required value="50"><br>
+            <input type="number" name="dose" id="dose" step="any" required value="50"><br><br>
         
             <label for="time">
                 Time (hours):
-                <img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
                      alt="tooltip" width="12" height="12" 
-                     title="Enter the time after cisplatin exposure, in hours. Example: 24">
+                     title="Enter the time after cisplatin exposure, in hours. Example: 24"></sup>
             </label><br>
-            <input type="number" name="time" id="time" step="any" required value="24"><br>
+            <input type="number" name="time" id="time" step="any" required value="24"><br><br>
         
             <label for="target">
                 Target:
-                <img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
                      alt="tooltip" width="12" height="12" 
-                     title="Choose which effect to predict: DNA Damage (EGs score) or Necrosis (% cell death).">
+                     title="Choose which effect to predict: DNA Damage (EGs score) or Necrosis (% cell death)."></sup>
             </label><br>
             <select name="target" id="target" required>
                 <option value="">--Select--</option>
                 <option value="DNA Damage" {% if request.form.get('target') == 'DNA Damage' or not request.form.get('target') %}selected{% endif %}>DNA Damage</option>
                 <option value="Necrosis" {% if request.form.get('target') == 'Necrosis' %}selected{% endif %}>Necrosis</option>
             </select>
-            <br>
+            <br><br>
         
             <input type="submit" value="Run Simulation">
         </form>
