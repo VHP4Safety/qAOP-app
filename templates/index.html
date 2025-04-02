@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>qAOP Prediction - Nephrotoxicity</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety Logo" class="center">
+    <h2 class="subheader">This qAOP tool is under development</h2>
+    <header>
+        <h1>qAOP Prediction - Cisplatin-Induced Nephrotoxicity</h1>
+    </header>
+    <div class="container">
+        <form method="POST">
+            <label for="dose">Dose (μM):</label>
+            <input type="number" name="dose" step="any" required>
+        
+            <label for="time">Time (hours):</label>
+            <input type="number" name="time" step="any" required>
+        
+            <label for="target">Target:</label>
+            <select name="target" required>
+                <option value="">--Select--</option>
+                <option value="DNA Damage">DNA Damage</option>
+                <option value="Necrosis">Necrosis</option>
+            </select>
+        
+            <input type="submit" value="Run Simulation">
+        </form>
+        {% if result %}
+        <h3>Result</h3>
+        <p>{{ result }}</p>
+        {% if image %}
+        <img src="data:image/png;base64,{{ image }}" alt="Distribution Plot" style="width:100%;">
+        {% endif %}
+        {% endif %}
+    </div>
+    <footer>
+        <p class="footer-content">
+            View the source code on&nbsp<a href="https://github.com/VHP4Safety/qAOP-predictor" target="_blank">GitHub</a>&nbsp
+        </p>
+    </footer>
+</body>
+</html>

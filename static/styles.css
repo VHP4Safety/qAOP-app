@@ -1,0 +1,158 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #93D5F6;
+    color: #29235C;
+}
+
+header {
+    background-color: #307BBF;
+    padding: 20px;
+    text-align: center;
+    color: white;
+}
+
+.subheader {
+    background-color: #ff0000;
+    padding: 20px;
+    text-align: center;
+    color: white;
+}
+
+.center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 500px;
+}
+
+.container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+
+.table-container {
+            max-height: 400px; 
+    overflow-y: auto;
+}
+
+h1 {
+    color: #ffffff;
+}
+
+h2 {
+    color: #ffffff;
+}
+
+img.logo {
+    display: block;
+    margin: 0 auto;
+    width: 200px;
+    height: auto;
+}
+
+input[type=button], input[type=submit], input[type=reset], button {
+    background-color: #E6007E;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-size: 12pt;
+}
+
+input[type=button]:hover, input[type=submit]:hover, input[type=reset]:hover, button:hover {
+    background-color: #005A6C;
+}
+
+input[type="text"], input[type="file"] {
+    width: 100%;  
+    padding: 10px;
+    margin: 10px 0;
+    box-sizing: border-box;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+}
+
+button {
+    background-color: #E6007E;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-size: 12pt;
+}
+
+button:hover {
+    background-color: #005A6C;
+}
+
+footer {
+    background-color: #307BBF;
+    padding: 10px;
+    text-align: center;
+    color: white;
+    position: relative;
+    width: 100%;
+    bottom: 0;
+}
+
+footer a {
+    color: white;
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+footer img {
+    width: 40px; 
+    height: auto;
+    vertical-align: middle;  
+}
+
+.footer-content {
+    display: inline-flex;
+    align-items: center;
+}
+
+.table-container {
+    max-height: 400px; 
+    overflow-y: auto;
+}
+
+.model-tile {
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #e9f6fd;
+    position: relative;
+    transition: background-color 0.3s ease;
+}
+
+.model-tile:hover, .model-tile.checked {
+    background-color: #ffe6f4;  
+}
+
+.model-tile input[type="checkbox"] {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.model-tile label {
+    display: block;
+    cursor: pointer;
+    margin-right: 30px;  
+}
