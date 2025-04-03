@@ -85,55 +85,83 @@ def plot_distributions(values, label, color, time_index):
     img.seek(0)
     return base64.b64encode(img.read()).decode('utf-8')
 
+# === Create time series plot and return as base64 image ===
+def plot_time_series(values, time_points, label, color, dose):
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Optional: Plot individual traces
+    for i in range(values.shape[0]):
+        ax.plot(time_points, values[i], alpha=0.2, lw=0.5, color=color)
+
+    # Mean and SD across all simulations
+    mean_values = np.mean(values, axis=0)
+    std_values = np.std(values, axis=0)
+
+    # Plot mean curve in black
+    ax.plot(time_points, mean_values, color="black", linewidth=2, label="Mean")
+
+    ax.set_title(f'{label} Levels Over Time (Dose = {dose:.1f} μM)')
+    ax.set_xlabel('Time (hours)')
+    ax.set_ylabel(f'{label} Levels' if label != "Necrosis" else 'Necrosis (%)')
+    ax.grid(True)
+    ax.legend()
+
+    # Save and return base64 image
+    img = io.BytesIO()
+    fig.savefig(img, format='png', bbox_inches='tight')
+    img.seek(0)
+    return base64.b64encode(img.read()).decode('utf-8')
+
+
 # === Flask route: homepage + form processing ===
 @app.route("/", methods=["GET", "POST"])
 def index():
-    result, img_data = None, None
-    dose, time, target = None, None, None
+    result_dd, result_nec = None, None
+    img_dist_dd, img_dist_nec = None, None
+    img_time_dd, img_time_nec = None, None
+    dose, time = None, None
 
     if request.method == "POST":
         try:
-            # Get inputs from HTML form
             dose = float(request.form.get("dose"))
             time = float(request.form.get("time"))
-            target = request.form.get("target")
         except (TypeError, ValueError):
-            result = "Please enter valid numeric values for dose and time."
-            return render_template("index.html", result=result)
+            result_dd = "Please enter valid numeric values for dose and time."
+            return render_template("index.html", result_dd=result_dd)
 
-        # Validate target
-        if target not in ["DNA Damage", "Necrosis"]:
-            result = "Please select a valid target variable."
-            return render_template("index.html", result=result)
-
-        # Run Monte Carlo simulation (250 times) using sampled parameter sets
+        # Simulate both endpoints (250 times)
         necrosis_vals, dd_vals, t_vals = [], [], np.linspace(0, time, 100)
         for _ in range(250):
             params = sample_random_iteration()
             sol, _ = run_qAOP_model(dose, time, params)
-            necrosis_vals.append(sol[:, -1])
-            dd_vals.append(sol[:, -2])
+            necrosis_vals.append(sol[:, -1])  # NEC
+            dd_vals.append(sol[:, -2])        # DD
 
         necrosis_vals = np.array(necrosis_vals)
         dd_vals = np.array(dd_vals)
-
-        # Get closest time point index
         idx = np.argmin(np.abs(t_vals - time))
 
-        # Extract and format result based on target type
-        if target == "DNA Damage":
-            mean_val = dd_vals[:, idx].mean()
-            std_val = dd_vals[:, idx].std()
-            result = f"Predicted DNA Damage at {time:.1f} h for {dose:.1f} μM: Mean = {mean_val:.2f}, Std = {std_val:.2f}"
-            img_data = plot_distributions(dd_vals, "DNA Damage", "red", idx)
-        elif target == "Necrosis":
-            mean_val = necrosis_vals[:, idx].mean()
-            std_val = necrosis_vals[:, idx].std()
-            result = f"Predicted Necrosis at {time:.1f} h for {dose:.1f} μM: Mean = {mean_val:.2f}%, Std = {std_val:.2f}%"
-            img_data = plot_distributions(necrosis_vals, "Necrosis", "blue", idx)
+        # DNA Damage result + plots
+        mean_dd = dd_vals[:, idx].mean()
+        std_dd = dd_vals[:, idx].std()
+        result_dd = f"Predicted DNA Damage at {time:.1f} h for {dose:.1f} μM: Mean = {mean_dd:.2f}, Std = {std_dd:.2f}"
+        img_dist_dd = plot_distributions(dd_vals, "DNA Damage", "red", idx)
+        img_time_dd = plot_time_series(dd_vals, t_vals, "DNA Damage", "red", dose)
 
-    # Render the web page with results (if any)
-    return render_template("index.html", result=result, image=img_data)
+        # Necrosis result + plots
+        mean_nec = necrosis_vals[:, idx].mean()
+        std_nec = necrosis_vals[:, idx].std()
+        result_nec = f"Predicted Necrosis at {time:.1f} h for {dose:.1f} μM: Mean = {mean_nec:.2f}%, Std = {std_nec:.2f}%"
+        img_dist_nec = plot_distributions(necrosis_vals, "Necrosis", "blue", idx)
+        img_time_nec = plot_time_series(necrosis_vals, t_vals, "Necrosis", "blue", dose)
+
+    return render_template(
+        "index.html",
+        result_dd=result_dd, result_nec=result_nec,
+        image_dist_dd=img_dist_dd, image_time_dd=img_time_dd,
+        image_dist_nec=img_dist_nec, image_time_nec=img_time_nec
+    )
+
 
 # === Run the Flask app (debug mode enabled) ===
 if __name__ == "__main__":

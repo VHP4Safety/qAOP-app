@@ -30,29 +30,35 @@
                      title="Enter the time after cisplatin exposure, in hours. Example: 24"></sup>
             </label><br>
             <input type="number" name="time" id="time" step="any" required value="24"><br><br>
-        
-            <label for="target">
-                Target:
-                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
-                     alt="tooltip" width="12" height="12" 
-                     title="Choose which effect to predict: DNA Damage (EGs score) or Necrosis (% cell death)."></sup>
-            </label><br>
-            <select name="target" id="target" required>
-                <option value="">--Select--</option>
-                <option value="DNA Damage" {% if request.form.get('target') == 'DNA Damage' or not request.form.get('target') %}selected{% endif %}>DNA Damage</option>
-                <option value="Necrosis" {% if request.form.get('target') == 'Necrosis' %}selected{% endif %}>Necrosis</option>
-            </select>
-            <br><br>
-        
+
             <input type="submit" value="Run Simulation">
         </form>
-        {% if result %}
-        <h3>Result</h3>
-        <p>{{ result }}</p>
-        {% if image %}
-        <img src="data:image/png;base64,{{ image }}" alt="Distribution Plot" style="width:100%; max-width: 700px;">
+        {% if result_dd %}
+        <h3>DNA Damage</h3>
+        <p>{{ result_dd }}</p>
+        {% if image_time_dd %}
+        <h4>Time Course</h4>
+        <img src="data:image/png;base64,{{ image_time_dd }}" alt="DNA Damage Time Plot" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% if image_dist_dd %}
+        <h4>Distribution at Selected Time</h4>
+        <img src="data:image/png;base64,{{ image_dist_dd }}" alt="DNA Damage Distribution" style="width:100%; max-width: 700px;">
         {% endif %}
         {% endif %}
+
+        {% if result_nec %}
+        <h3>Necrosis</h3>
+        <p>{{ result_nec }}</p>
+        {% if image_time_nec %}
+        <h4>Time Course</h4>
+        <img src="data:image/png;base64,{{ image_time_nec }}" alt="Necrosis Time Plot" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% if image_dist_nec %}
+        <h4>Distribution at Selected Time</h4>
+        <img src="data:image/png;base64,{{ image_dist_nec }}" alt="Necrosis Distribution" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% endif %}
+
     </div>
 
     <footer>
