@@ -6,14 +6,14 @@ This tool runs a quantitative Adverse Outcome Pathway (qAOP) simulation using an
 
 ## 🚀 How to Run the App
 
-### 1. Clone this repository
+### Clone this repository
 
 ```bash
 git clone https://github.com/VHP4Safety/qAOP-predictor.git
 cd qAOP-predictor
 ```
 
-### 2. Set up the environment
+### Run with Python
 We recommend using a virtual environment or `conda`.
 
 Using pip:
@@ -23,26 +23,26 @@ source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Run the Flask app
+Then, run the Flask app
 ```bash
 python app.py
 ```
 The app will be available at:
-http://127.0.0.1:5000
+http://localhost:5000
 
 ---
 
-## 🐳 Run with Docker (Alternative)
+### Run with Docker
 
 If you prefer not to install Python locally, you can run the app via Docker.
 
-### 1. Build the Docker image
+Build the Docker image.
 
 ```bash
 docker build -t qaop-predictor .
 ```
 
-### 2. Run the container
+Then, run the container
 
 ```bash
 docker run -p 5000:5000 qaop-predictor
