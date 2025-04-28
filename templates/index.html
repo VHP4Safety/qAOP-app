@@ -15,24 +15,52 @@
 
     <div class="container">
         <form method="POST">
-            <label for="dose">
-                Dose (μM):
-                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
-                     alt="tooltip" width="12" height="12" 
-                     title="Enter the cisplatin dose in micromolar (μM). Example: 50"></sup>
+            <label for="model">
+                Select Model:
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
+                         alt="tooltip" width="12" height="12"
+                         title="Choose between in vitro (cell culture) and in vivo (rat nephrotoxicity)."></sup>
             </label><br>
-            <input type="number" name="dose" id="dose" step="any" required value="50"><br><br>
-        
+            <select name="model" id="model" required>
+                <option value="invitro" {% if model_type == "invitro" %}selected{% endif %}>
+                    In Vitro (Cell Culture, μM)
+                </option>
+                <option value="invivo" {% if model_type == "invivo" %}selected{% endif %}>
+                    In Vivo (Animal Study, mg/kg)
+                </option>
+            </select><br><br>
+    
+            <label for="dose">
+                Dose:
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
+                         alt="tooltip" width="12" height="12"
+                         title="Enter the dose. For in vitro, use μM. For in vivo, use mg/kg."></sup>
+            </label><br>
+            <input type="number"
+                   name="dose"
+                   id="dose"
+                   step="any"
+                   required
+                   value="{{ dose if dose is not none else 50 }}"><br><br>
+    
             <label for="time">
                 Time (hours):
-                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
-                     alt="tooltip" width="12" height="12" 
-                     title="Enter the time after cisplatin exposure, in hours. Example: 24"></sup>
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
+                         alt="tooltip" width="12" height="12"
+                         title="Enter the time after cisplatin exposure, in hours. Example: 24"></sup>
             </label><br>
-            <input type="number" name="time" id="time" step="any" required value="24"><br><br>
-
+            <input type="number"
+                   name="time"
+                   id="time"
+                   step="any"
+                   required
+                   value="{{ time if time is not none else 24 }}"><br><br>
+    
             <input type="submit" value="Run Simulation">
         </form>
+    </div>
+    
+    <div class="container">
         {% if result_dd %}
         <h3>DNA Damage</h3>
         <p>{{ result_dd }}</p>
@@ -56,6 +84,32 @@
         {% if image_dist_nec %}
         <h4>Distribution at Selected Time</h4>
         <img src="data:image/png;base64,{{ image_dist_nec }}" alt="Necrosis Distribution" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% endif %}
+
+        {% if result_infl %}
+        <h3>Inflammation</h3>
+        <p>{{ result_infl }}</p>
+        {% if image_time_infl %}
+        <h4>Time Course</h4>
+        <img src="data:image/png;base64,{{ image_time_infl }}" alt="Inflammation Time Plot" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% if image_dist_infl %}
+        <h4>Distribution at Selected Time</h4>
+        <img src="data:image/png;base64,{{ image_dist_infl }}" alt="Inflammation Distribution" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% endif %}
+
+        {% if result_kf %}
+        <h3>Kidney Failure</h3>
+        <p>{{ result_kf }}</p>
+        {% if image_time_kf %}
+        <h4>Time Course</h4>
+        <img src="data:image/png;base64,{{ image_time_kf }}" alt="Kidney Failure Time Plot" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% if image_dist_kf %}
+        <h4>Distribution at Selected Time</h4>
+        <img src="data:image/png;base64,{{ image_dist_kf }}" alt="Kidney Failure Distribution" style="width:100%; max-width: 700px;">
         {% endif %}
         {% endif %}
 
