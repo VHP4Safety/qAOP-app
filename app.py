@@ -159,6 +159,11 @@ def index():
     model_type = "invitro"
     dose = None
     time = None
+    
+    if dose is None:
+        dose = 50 if model_type == "invitro" else 5   # invitro→50μM, invivo→5 mg/kg
+    if time is None:
+        time = 72 if model_type == "invitro" else 700  # invitro→24 h, invivo→48 h
 
     # Initialize results
     result_dd = result_nec = result_infl = result_kf = None
@@ -230,12 +235,21 @@ def index():
             result_kf = f"Predicted Kidney Failure at {time:.1f} h: Mean = {mean_kf:.2f}, Std = {std_kf:.2f}"
             img_dist_kf = plot_distributions(kf_vals, "Kidney Failure", "purple", idx)
             img_time_kf = plot_time_series(kf_vals, t_vals, "Kidney Failure", "purple", dose, unit)
+    
+    defaults = {
+    "invitro": {"dose": 50, "time": 72},
+    "invivo":  {"dose": 5,  "time": 672}
+    }
 
     return render_template(
     "index.html",
     model_type=model_type,
     dose=dose,
     time=time,
+    default_invitro_dose=defaults["invitro"]["dose"],
+    default_invitro_time=defaults["invitro"]["time"],
+    default_invivo_dose=defaults["invivo"]["dose"],
+    default_invivo_time=defaults["invivo"]["time"],
     result_dd=result_dd, result_nec=result_nec,
     image_dist_dd=img_dist_dd, image_time_dd=img_time_dd,
     image_dist_nec=img_dist_nec, image_time_nec=img_time_nec,
