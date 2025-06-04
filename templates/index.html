@@ -15,24 +15,56 @@
 
     <div class="container">
         <form method="POST">
-            <label for="dose">
-                Dose (μM):
-                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
-                     alt="tooltip" width="12" height="12" 
-                     title="Enter the cisplatin dose in micromolar (μM). Example: 50"></sup>
+            <label for="model">
+                Select Model:
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
+                         alt="tooltip" width="12" height="12"
+                         title="Choose between in vitro (RPTEC/TERT1) and in vivo (rat kidney)."></sup>
             </label><br>
-            <input type="number" name="dose" id="dose" step="any" required value="50"><br><br>
-        
+            <select name="model" id="model" required>
+                
+
+                <option value="invitro" {% if model_type == "invitro" %}selected{% endif %}>
+                    In Vitro
+                </option>
+                <option value="invivo" {% if model_type == "invivo" %}selected{% endif %}>
+                    In Vivo
+                </option>
+            </select><br><br>
+
+            <div id="model-explanation" class="explanation">
+            </div>
+    
+            <label for="dose">
+              Dose (<span id="dose-unit">μM</span>):
+              <sup></sup>
+            </label><br>
+            
+            <input type="number"
+                   name="dose"
+                   id="dose"
+                   step="any"
+                   required
+                   value="{{ dose if dose is not none else 50 }}"><br><br>
+    
             <label for="time">
                 Time (hours):
-                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}" 
-                     alt="tooltip" width="12" height="12" 
-                     title="Enter the time after cisplatin exposure, in hours. Example: 24"></sup>
+                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
+                         alt="tooltip" width="12" height="12"
+                         title="Enter the time after cisplatin exposure, in hours. Example: 24"></sup>
             </label><br>
-            <input type="number" name="time" id="time" step="any" required value="24"><br><br>
-
+            <input type="number"
+                   name="time"
+                   id="time"
+                   step="any"
+                   required
+                   value="{{ time if time is not none else 24 }}"><br><br>
+    
             <input type="submit" value="Run Simulation">
         </form>
+    </div>
+    
+    <div class="container">
         {% if result_dd %}
         <h3>DNA Damage</h3>
         <p>{{ result_dd }}</p>
@@ -59,6 +91,32 @@
         {% endif %}
         {% endif %}
 
+        {% if result_infl %}
+        <h3>Inflammation</h3>
+        <p>{{ result_infl }}</p>
+        {% if image_time_infl %}
+        <h4>Time Course</h4>
+        <img src="data:image/png;base64,{{ image_time_infl }}" alt="Inflammation Time Plot" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% if image_dist_infl %}
+        <h4>Distribution at Selected Time</h4>
+        <img src="data:image/png;base64,{{ image_dist_infl }}" alt="Inflammation Distribution" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% endif %}
+
+        {% if result_kf %}
+        <h3>Kidney Failure</h3>
+        <p>{{ result_kf }}</p>
+        {% if image_time_kf %}
+        <h4>Time Course</h4>
+        <img src="data:image/png;base64,{{ image_time_kf }}" alt="Kidney Failure Time Plot" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% if image_dist_kf %}
+        <h4>Distribution at Selected Time</h4>
+        <img src="data:image/png;base64,{{ image_dist_kf }}" alt="Kidney Failure Distribution" style="width:100%; max-width: 700px;">
+        {% endif %}
+        {% endif %}
+
     </div>
 
     <footer>
@@ -66,5 +124,48 @@
             View the source code on&nbsp<a href="https://github.com/VHP4Safety/qAOP-predictor" target="_blank">GitHub</a>&nbsp
         </p>
     </footer>
+    <script>
+      const modelSelect = document.getElementById('model');
+      const doseInput   = document.getElementById('dose');
+      const timeInput   = document.getElementById('time');
+
+      const defaults = {
+        invitro: { dose: {{ default_invitro_dose }}, time: {{ default_invitro_time }} },
+        invivo:  { dose: {{ default_invivo_dose }},  time: {{ default_invivo_time }}  }
+      };
+
+      function updateDefaults() {
+        const m = modelSelect.value;
+        doseInput.value = defaults[m].dose;
+        timeInput.value = defaults[m].time;
+      }
+
+      modelSelect.addEventListener('change', updateDefaults);
+      // Optionally call once on load to sync:
+      updateDefaults();
+
+      const doseUnitSpan = document.getElementById('dose-unit');
+      const unitLabels = { invitro: 'μM', invivo: 'mg/kg' };
+
+      function updateUnits() {
+        doseUnitSpan.textContent = unitLabels[ modelSelect.value ];
+      }
+
+      // Add alongside your other listeners:
+      modelSelect.addEventListener('change', updateUnits);
+      updateUnits();
+
+      const explanation = document.getElementById('model-explanation');
+      const texts = {
+        invitro: `<p>RPTEC/TERT1 cells were exposed to cisplatin across a concentration gradient of 1–50 µM, with transcriptomic profiling and propidium iodide staining performed over 72 h.</p>`,
+        invivo:  `<p>Rats were administered a single intravenous dose of 5 mg/kg cisplatin; transcriptomic analyses of outer-medulla proximal tubule cells and comprehensive renal histopathology were conducted at serial intervals over 28 days (672 h).</p>`
+      };
+      function updateExplanation(){
+      explanation.innerHTML = texts[ modelSelect.value ];
+      }
+      modelSelect.addEventListener('change', updateExplanation);
+      updateExplanation();  
+    </script>
+
 </body>
 </html>
