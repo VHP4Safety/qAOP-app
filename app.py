@@ -564,7 +564,6 @@ def index():
     result_dd = result_nec = result_infl = result_kf = None
     img_dist_dd = img_dist_nec = img_dist_infl = img_dist_kf = None
     img_time_dd = img_time_nec = img_time_infl = img_time_kf = None
-    dose = time = None
 
     if request.method == "POST":
         model_type = request.form.get("model", "invitro")  # Capture model type
@@ -614,14 +613,14 @@ def index():
         # DNA Damage
         mean_dd = dd_vals[:, idx].mean()
         std_dd = dd_vals[:, idx].std()
-        result_dd = f"Predicted DNA Damage at {time:.1f} h: Mean = {mean_dd:.2f}, Std = {std_dd:.2f}"
+        result_dd = f"Predicted DNA Damage at {time_param:.1f} h: Mean = {mean_dd:.2f}, Std = {std_dd:.2f}"
         img_dist_dd = plot_distributions(dd_vals, "DNA Damage", "red", idx)
         img_time_dd = plot_time_series(dd_vals, t_vals, "DNA Damage", "red", dose, unit)
 
         # Necrosis
         mean_nec = necrosis_vals[:, idx].mean()
         std_nec = necrosis_vals[:, idx].std()
-        result_nec = f"Predicted Necrosis at {time:.1f} h: Mean = {mean_nec:.2f}%, Std = {std_nec:.2f}%"
+        result_nec = f"Predicted Necrosis at {time_param:.1f} h: Mean = {mean_nec:.2f}%, Std = {std_nec:.2f}%"
         img_dist_nec = plot_distributions(necrosis_vals, "Necrosis", "blue", idx)
         img_time_nec = plot_time_series(necrosis_vals, t_vals, "Necrosis", "blue", dose, unit)
 
@@ -632,13 +631,13 @@ def index():
 
             mean_infl = inflammation_vals[:, idx].mean()
             std_infl = inflammation_vals[:, idx].std()
-            result_infl = f"Predicted Inflammation at {time:.1f} h: Mean = {mean_infl:.2f}, Std = {std_infl:.2f}"
+            result_infl = f"Predicted Inflammation at {time_param:.1f} h: Mean = {mean_infl:.2f}, Std = {std_infl:.2f}"
             img_dist_infl = plot_distributions(inflammation_vals, "Inflammation", "green", idx)
             img_time_infl = plot_time_series(inflammation_vals, t_vals, "Inflammation", "green", dose, unit)
 
             mean_kf = kf_vals[:, idx].mean()
             std_kf = kf_vals[:, idx].std()
-            result_kf = f"Predicted Kidney Failure at {time:.1f} h: Mean = {mean_kf:.2f}, Std = {std_kf:.2f}"
+            result_kf = f"Predicted Kidney Failure at {time_param:.1f} h: Mean = {mean_kf:.2f}, Std = {std_kf:.2f}"
             img_dist_kf = plot_distributions(kf_vals, "Kidney Failure", "purple", idx)
             img_time_kf = plot_time_series(kf_vals, t_vals, "Kidney Failure", "purple", dose, unit)
     
@@ -647,15 +646,19 @@ def index():
     "invivo":  {"dose": 5,  "time": 672}
     }
 
+    # Get parameter ranges for the frontend
+    param_ranges = get_parameter_ranges()
+    
     return render_template(
     "index.html",
     model_type=model_type,
     dose=dose,
-    time=time,
+    time=time_param if 'time_param' in locals() else time,
     default_invitro_dose=defaults["invitro"]["dose"],
     default_invitro_time=defaults["invitro"]["time"],
     default_invivo_dose=defaults["invivo"]["dose"],
     default_invivo_time=defaults["invivo"]["time"],
+    parameter_ranges=param_ranges,
     result_dd=result_dd, result_nec=result_nec,
     image_dist_dd=img_dist_dd, image_time_dd=img_time_dd,
     image_dist_nec=img_dist_nec, image_time_nec=img_time_nec,

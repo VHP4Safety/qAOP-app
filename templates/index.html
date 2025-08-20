@@ -35,30 +35,71 @@
             <div id="model-explanation" class="explanation">
             </div>
     
-            <label for="dose">
-              Dose (<span id="dose-unit">μM</span>):
-              <sup></sup>
-            </label><br>
-            
-            <input type="number"
-                   name="dose"
-                   id="dose"
-                   step="any"
-                   required
-                   value="{{ dose if dose is not none else 50 }}"><br><br>
+            <!-- Dose Input with Slider -->
+            <div class="input-group">
+                <label for="dose">
+                    Dose (<span id="dose-unit">μM</span>):
+                    <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
+                             alt="tooltip" width="12" height="12"
+                             title="Cisplatin dose - drag slider or enter value directly"></sup>
+                </label>
+                <div class="slider-container">
+                    <input type="range" 
+                           id="dose-slider" 
+                           class="slider"
+                           min="0" max="100" 
+                           step="1" 
+                           value="50">
+                    <div class="slider-labels">
+                        <span id="dose-min-label">0.001 μM</span>
+                        <span class="slider-scale-info" id="dose-scale-info">Log scale</span>
+                        <span id="dose-max-label">1000 μM</span>
+                    </div>
+                </div>
+                <input type="number"
+                       name="dose"
+                       id="dose"
+                       class="value-input"
+                       step="any"
+                       required
+                       value="{{ dose if dose is not none else 50 }}">
+                <div class="range-info">
+                    <small id="dose-range-info">Range: 0.001 - 1000 μM (logarithmic scale)</small>
+                </div>
+            </div>
     
-            <label for="time">
-                Time (hours):
-                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
-                         alt="tooltip" width="12" height="12"
-                         title="Enter the time after cisplatin exposure, in hours. Example: 24"></sup>
-            </label><br>
-            <input type="number"
-                   name="time"
-                   id="time"
-                   step="any"
-                   required
-                   value="{{ time if time is not none else 24 }}"><br><br>
+            <!-- Time Input with Slider -->
+            <div class="input-group">
+                <label for="time">
+                    Time (hours):
+                    <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
+                             alt="tooltip" width="12" height="12"
+                             title="Time after cisplatin exposure - drag slider or enter value directly"></sup>
+                </label>
+                <div class="slider-container">
+                    <input type="range" 
+                           id="time-slider" 
+                           class="slider"
+                           min="0" max="100" 
+                           step="1" 
+                           value="50">
+                    <div class="slider-labels">
+                        <span id="time-min-label">0.1 h</span>
+                        <span class="slider-scale-info" id="time-scale-info">Linear scale</span>
+                        <span id="time-max-label">168 h</span>
+                    </div>
+                </div>
+                <input type="number"
+                       name="time"
+                       id="time"
+                       class="value-input"
+                       step="any"
+                       required
+                       value="{{ time if time is not none else 24 }}">
+                <div class="range-info">
+                    <small id="time-range-info">Range: 0.1 - 168 hours (linear scale)</small>
+                </div>
+            </div>
     
             <input type="submit" value="Run Simulation">
         </form>
@@ -70,10 +111,12 @@
         <p>{{ result_dd }}</p>
         {% if image_time_dd %}
         <h4>Time Course</h4>
+        <p class="plot-description">Shows how DNA damage evolves over time. Each line represents one simulation (Monte Carlo), demonstrating the uncertainty in predictions. The average trend shows the expected progression of DNA damage from exposure to the selected time point.</p>
         <img src="data:image/png;base64,{{ image_time_dd }}" alt="DNA Damage Time Plot" style="width:100%; max-width: 700px;">
         {% endif %}
         {% if image_dist_dd %}
         <h4>Distribution at Selected Time</h4>
+        <p class="plot-description">Shows the statistical distribution of DNA damage predictions at the selected time point ({{ time if time else 24 }} hours). The histogram reveals the range of possible outcomes and the uncertainty in the model prediction.</p>
         <img src="data:image/png;base64,{{ image_dist_dd }}" alt="DNA Damage Distribution" style="width:100%; max-width: 700px;">
         {% endif %}
         {% endif %}
@@ -83,10 +126,12 @@
         <p>{{ result_nec }}</p>
         {% if image_time_nec %}
         <h4>Time Course</h4>
+        <p class="plot-description">Shows necrosis (cell death) progression over time. Multiple simulation lines demonstrate the variability in necrosis onset and progression rates. Higher values indicate greater cell death.</p>
         <img src="data:image/png;base64,{{ image_time_nec }}" alt="Necrosis Time Plot" style="width:100%; max-width: 700px;">
         {% endif %}
         {% if image_dist_nec %}
         <h4>Distribution at Selected Time</h4>
+        <p class="plot-description">Distribution of necrosis predictions at {{ time if time else 24 }} hours, showing the probability of different levels of cell death. The spread indicates model uncertainty.</p>
         <img src="data:image/png;base64,{{ image_dist_nec }}" alt="Necrosis Distribution" style="width:100%; max-width: 700px;">
         {% endif %}
         {% endif %}
@@ -96,10 +141,12 @@
         <p>{{ result_infl }}</p>
         {% if image_time_infl %}
         <h4>Time Course</h4>
+        <p class="plot-description">Inflammation response over time following cisplatin exposure. Shows how inflammatory markers evolve, with potential peaks and recovery phases. Multiple lines represent simulation variability.</p>
         <img src="data:image/png;base64,{{ image_time_infl }}" alt="Inflammation Time Plot" style="width:100%; max-width: 700px;">
         {% endif %}
         {% if image_dist_infl %}
         <h4>Distribution at Selected Time</h4>
+        <p class="plot-description">Statistical distribution of inflammation levels at {{ time if time else 48 }} hours. Higher values indicate stronger inflammatory response, with spread showing prediction uncertainty.</p>
         <img src="data:image/png;base64,{{ image_dist_infl }}" alt="Inflammation Distribution" style="width:100%; max-width: 700px;">
         {% endif %}
         {% endif %}
@@ -109,10 +156,12 @@
         <p>{{ result_kf }}</p>
         {% if image_time_kf %}
         <h4>Time Course</h4>
+        <p class="plot-description">Kidney failure progression over time, representing the cumulative adverse outcome. Shows delayed onset and potential progression patterns. Each line represents a different simulation scenario.</p>
         <img src="data:image/png;base64,{{ image_time_kf }}" alt="Kidney Failure Time Plot" style="width:100%; max-width: 700px;">
         {% endif %}
         {% if image_dist_kf %}
         <h4>Distribution at Selected Time</h4>
+        <p class="plot-description">Probability distribution of kidney failure levels at {{ time if time else 48 }} hours. Higher values indicate greater risk of kidney dysfunction, with variability showing model uncertainty.</p>
         <img src="data:image/png;base64,{{ image_dist_kf }}" alt="Kidney Failure Distribution" style="width:100%; max-width: 700px;">
         {% endif %}
         {% endif %}
@@ -126,45 +175,175 @@
     </footer>
     <script>
       const modelSelect = document.getElementById('model');
-      const doseInput   = document.getElementById('dose');
-      const timeInput   = document.getElementById('time');
+      const doseInput = document.getElementById('dose');
+      const timeInput = document.getElementById('time');
+      const doseSlider = document.getElementById('dose-slider');
+      const timeSlider = document.getElementById('time-slider');
+      const doseUnitSpan = document.getElementById('dose-unit');
+      const doseMinLabel = document.getElementById('dose-min-label');
+      const doseMaxLabel = document.getElementById('dose-max-label');
+      const timeMinLabel = document.getElementById('time-min-label');
+      const timeMaxLabel = document.getElementById('time-max-label');
+      const doseScaleInfo = document.getElementById('dose-scale-info');
+      const timeScaleInfo = document.getElementById('time-scale-info');
+      const doseRangeInfo = document.getElementById('dose-range-info');
+      const timeRangeInfo = document.getElementById('time-range-info');
 
-      const defaults = {
-        invitro: { dose: {{ default_invitro_dose }}, time: {{ default_invitro_time }} },
-        invivo:  { dose: {{ default_invivo_dose }},  time: {{ default_invivo_time }}  }
+      // Parameter ranges and defaults
+      const config = {
+        invitro: {
+          dose: { min: 0.001, max: 1000, default: 50, unit: 'μM', logScale: true },
+          time: { min: 0.1, max: 168, default: 24, unit: 'hours', logScale: false }
+        },
+        invivo: {
+          dose: { min: 0.1, max: 50, default: 5, unit: 'mg/kg', logScale: true },
+          time: { min: 1, max: 2160, default: 48, unit: 'hours', logScale: false }
+        }
       };
 
-      function updateDefaults() {
-        const m = modelSelect.value;
-        doseInput.value = defaults[m].dose;
-        timeInput.value = defaults[m].time;
+      // Conversion functions between slider (0-100) and actual values
+      function valueToSlider(value, min, max, logScale) {
+        // Clamp value to valid range
+        value = Math.max(min, Math.min(max, value));
+        
+        if (logScale) {
+          const logMin = Math.log10(min);
+          const logMax = Math.log10(max);
+          const logValue = Math.log10(value);
+          return ((logValue - logMin) / (logMax - logMin)) * 100;
+        } else {
+          return ((value - min) / (max - min)) * 100;
+        }
       }
 
-      modelSelect.addEventListener('change', updateDefaults);
-      // Optionally call once on load to sync:
-      updateDefaults();
-
-      const doseUnitSpan = document.getElementById('dose-unit');
-      const unitLabels = { invitro: 'μM', invivo: 'mg/kg' };
-
-      function updateUnits() {
-        doseUnitSpan.textContent = unitLabels[ modelSelect.value ];
+      function sliderToValue(sliderPercent, min, max, logScale) {
+        // Clamp slider to 0-100
+        sliderPercent = Math.max(0, Math.min(100, sliderPercent));
+        
+        if (logScale) {
+          const logMin = Math.log10(min);
+          const logMax = Math.log10(max);
+          const logValue = logMin + (sliderPercent / 100) * (logMax - logMin);
+          return Math.pow(10, logValue);
+        } else {
+          return min + (sliderPercent / 100) * (max - min);
+        }
       }
 
-      // Add alongside your other listeners:
-      modelSelect.addEventListener('change', updateUnits);
-      updateUnits();
+      // Update slider when input changes
+      function syncSliderFromInput(inputElement, sliderElement, config) {
+        const value = parseFloat(inputElement.value);
+        if (!isNaN(value)) {
+          const sliderVal = valueToSlider(value, config.min, config.max, config.logScale);
+          sliderElement.value = sliderVal;
+        }
+      }
 
+      // Update input when slider changes
+      function syncInputFromSlider(sliderElement, inputElement, config) {
+        const sliderVal = parseFloat(sliderElement.value);
+        const value = sliderToValue(sliderVal, config.min, config.max, config.logScale);
+        
+        // Format value appropriately
+        if (config.logScale) {
+          if (value < 0.01) {
+            inputElement.value = value.toFixed(4);
+          } else if (value < 1) {
+            inputElement.value = value.toFixed(3);
+          } else if (value < 10) {
+            inputElement.value = value.toFixed(2);
+          } else {
+            inputElement.value = value.toFixed(1);
+          }
+        } else {
+          inputElement.value = value.toFixed(1);
+        }
+      }
+
+      // Update UI for current model
+      function updateModelUI() {
+        const model = modelSelect.value;
+        const doseConfig = config[model].dose;
+        const timeConfig = config[model].time;
+
+        // Update units and labels
+        doseUnitSpan.textContent = doseConfig.unit;
+        doseMinLabel.textContent = `${doseConfig.min} ${doseConfig.unit}`;
+        doseMaxLabel.textContent = `${doseConfig.max} ${doseConfig.unit}`;
+        timeMinLabel.textContent = `${timeConfig.min} h`;
+        timeMaxLabel.textContent = `${timeConfig.max} h`;
+        
+        // Update scale indicators
+        doseScaleInfo.textContent = doseConfig.logScale ? 'Log scale' : 'Linear scale';
+        timeScaleInfo.textContent = timeConfig.logScale ? 'Log scale' : 'Linear scale';
+        
+        // Update range info
+        const doseScaleText = doseConfig.logScale ? 'logarithmic scale' : 'linear scale';
+        const timeScaleText = timeConfig.logScale ? 'logarithmic scale' : 'linear scale';
+        doseRangeInfo.textContent = `Range: ${doseConfig.min} - ${doseConfig.max} ${doseConfig.unit} (${doseScaleText})`;
+        timeRangeInfo.textContent = `Range: ${timeConfig.min} - ${timeConfig.max} ${timeConfig.unit} (${timeScaleText})`;
+
+        // Set default values only if inputs are empty or have default values
+        if (!doseInput.value || doseInput.value == doseConfig.default) {
+          doseInput.value = doseConfig.default;
+        }
+        if (!timeInput.value || timeInput.value == timeConfig.default) {
+          timeInput.value = timeConfig.default;
+        }
+        
+        // Always sync sliders with current input values
+        syncSliderFromInput(doseInput, doseSlider, doseConfig);
+        syncSliderFromInput(timeInput, timeSlider, timeConfig);
+      }
+
+      // Event listeners for dose
+      doseSlider.addEventListener('input', () => {
+        const model = modelSelect.value;
+        syncInputFromSlider(doseSlider, doseInput, config[model].dose);
+      });
+
+      doseInput.addEventListener('input', () => {
+        const model = modelSelect.value;
+        syncSliderFromInput(doseInput, doseSlider, config[model].dose);
+      });
+
+      // Event listeners for time
+      timeSlider.addEventListener('input', () => {
+        const model = modelSelect.value;
+        syncInputFromSlider(timeSlider, timeInput, config[model].time);
+      });
+
+      timeInput.addEventListener('input', () => {
+        const model = modelSelect.value;
+        syncSliderFromInput(timeInput, timeSlider, config[model].time);
+      });
+
+      // Model change handler
+      modelSelect.addEventListener('change', updateModelUI);
+
+      // Model explanation
       const explanation = document.getElementById('model-explanation');
       const texts = {
         invitro: `<p>RPTEC/TERT1 cells were exposed to cisplatin across a concentration gradient of 1–50 µM, with transcriptomic profiling and propidium iodide staining performed over 72 h.</p>`,
-        invivo:  `<p>Rats were administered a single intravenous dose of 5 mg/kg cisplatin; transcriptomic analyses of outer-medulla proximal tubule cells and comprehensive renal histopathology were conducted at serial intervals over 28 days (672 h).</p>`
+        invivo: `<p>Rats were administered a single intravenous dose of 5 mg/kg cisplatin; transcriptomic analyses of outer-medulla proximal tubule cells and comprehensive renal histopathology were conducted at serial intervals over 28 days (672 h).</p>`
       };
-      function updateExplanation(){
-      explanation.innerHTML = texts[ modelSelect.value ];
+      
+      function updateExplanation() {
+        explanation.innerHTML = texts[modelSelect.value];
       }
+      
       modelSelect.addEventListener('change', updateExplanation);
-      updateExplanation();  
+      
+      // Initialize everything
+      updateModelUI();
+      updateExplanation();
+      
+      // Force sync sliders with current input values on page load
+      setTimeout(() => {
+        const model = modelSelect.value;
+        syncSliderFromInput(doseInput, doseSlider, config[model].dose);
+        syncSliderFromInput(timeInput, timeSlider, config[model].time);
+      }, 100);
     </script>
 
 </body>

@@ -156,3 +156,188 @@ footer img {
     cursor: pointer;
     margin-right: 30px;  
 }
+
+/* Enhanced Input Styling */
+.input-group {
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.input-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #29235C;
+    font-size: 14px;
+}
+
+/* Slider Container */
+.slider-container {
+    margin: 10px 0;
+    position: relative;
+}
+
+/* Modern Slider Styling */
+.slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #E6007E, #307BBF);
+    outline: none;
+    margin: 10px 0;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #E6007E;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    background: #005A6C;
+    transform: scale(1.1);
+}
+
+.slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #E6007E;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+    background: #005A6C;
+    transform: scale(1.1);
+}
+
+/* Slider Labels */
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #666;
+}
+
+.slider-scale-info {
+    background-color: #E6007E;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* Value Input Field */
+.value-input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    box-sizing: border-box;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    background-color: white;
+    transition: border-color 0.3s ease;
+}
+
+.value-input:focus {
+    border-color: #E6007E;
+    outline: none;
+    box-shadow: 0 0 5px rgba(230, 0, 126, 0.3);
+}
+
+/* Range Information */
+.range-info {
+    margin-top: 5px;
+}
+
+.range-info small {
+    color: #666;
+    font-style: italic;
+    font-size: 11px;
+}
+
+/* Better number input styling */
+input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    box-sizing: border-box;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    background-color: white;
+    transition: border-color 0.3s ease;
+}
+
+input[type="number"]:focus {
+    border-color: #E6007E;
+    outline: none;
+    box-shadow: 0 0 5px rgba(230, 0, 126, 0.3);
+}
+
+/* Select styling */
+select {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    box-sizing: border-box;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    background-color: white;
+    transition: border-color 0.3s ease;
+}
+
+select:focus {
+    border-color: #E6007E;
+    outline: none;
+    box-shadow: 0 0 5px rgba(230, 0, 126, 0.3);
+}
+
+/* Model explanation styling */
+.explanation {
+    margin: 15px 0;
+    padding: 15px;
+    background-color: #e9f6fd;
+    border-left: 4px solid #307BBF;
+    border-radius: 4px;
+}
+
+.explanation p {
+    margin: 0;
+    color: #29235C;
+    line-height: 1.5;
+}
+
+/* Plot description styling */
+.plot-description {
+    margin: 10px 0 15px 0;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #E6007E;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.4;
+    font-style: italic;
+}
