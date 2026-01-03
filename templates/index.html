@@ -110,6 +110,11 @@
     
     <div class="container">
         {% if result_dd %}
+        <div style="margin: 20px 0; text-align: center;">
+            <a href="{{ url_for('download_report') }}" class="download-btn" style="display: inline-block; padding: 12px 24px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">
+                📄 Download Report
+            </a>
+        </div>
         <h3>DNA Damage</h3>
         <p>{{ result_dd }}</p>
         {% if plot_time_dd %}
