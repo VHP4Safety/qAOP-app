@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>qAOP Prediction - Nephrotoxicity</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <!-- Plotly.js for interactive plots (v2.28.0+ required for bdata support from Plotly.py 6.x) -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
     <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety Logo" class="center">
@@ -109,60 +112,60 @@
         {% if result_dd %}
         <h3>DNA Damage</h3>
         <p>{{ result_dd }}</p>
-        {% if image_time_dd %}
+        {% if plot_time_dd %}
         <h4>Time Course</h4>
-        <p class="plot-description">Shows how DNA damage evolves over time. Each line represents one simulation (Monte Carlo), demonstrating the uncertainty in predictions. The average trend shows the expected progression of DNA damage from exposure to the selected time point.</p>
-        <img src="data:image/png;base64,{{ image_time_dd }}" alt="DNA Damage Time Plot" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Shows how DNA damage evolves over time with 95% confidence intervals (light shading) and interquartile range (darker shading). Click legend items to toggle visibility. Hover for exact values, zoom/pan to explore.</p>
+        <div id="plot-time-dd" style="width:100%; height:500px;"></div>
         {% endif %}
-        {% if image_dist_dd %}
+        {% if plot_dist_dd %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Shows the statistical distribution of DNA damage predictions at the selected time point ({{ time if time else 24 }} hours). The histogram reveals the range of possible outcomes and the uncertainty in the model prediction.</p>
-        <img src="data:image/png;base64,{{ image_dist_dd }}" alt="DNA Damage Distribution" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Statistical distribution of DNA damage at {{ time if time else 24 }} hours with interactive histogram, KDE curve, and box plot. Markers show mean, median, and 95% CI. Zoom and hover for details.</p>
+        <div id="plot-dist-dd" style="width:100%; height:600px;"></div>
         {% endif %}
         {% endif %}
 
         {% if result_nec %}
         <h3>Necrosis</h3>
         <p>{{ result_nec }}</p>
-        {% if image_time_nec %}
+        {% if plot_time_nec %}
         <h4>Time Course</h4>
-        <p class="plot-description">Shows necrosis (cell death) progression over time. Multiple simulation lines demonstrate the variability in necrosis onset and progression rates. Higher values indicate greater cell death.</p>
-        <img src="data:image/png;base64,{{ image_time_nec }}" alt="Necrosis Time Plot" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Necrosis progression over time with 95% confidence intervals and IQR bands. Interactive plot allows zoom/pan and hover for exact values at each time point.</p>
+        <div id="plot-time-nec" style="width:100%; height:500px;"></div>
         {% endif %}
-        {% if image_dist_nec %}
+        {% if plot_dist_nec %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Distribution of necrosis predictions at {{ time if time else 24 }} hours, showing the probability of different levels of cell death. The spread indicates model uncertainty.</p>
-        <img src="data:image/png;base64,{{ image_dist_nec }}" alt="Necrosis Distribution" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Interactive distribution showing necrosis levels at {{ time if time else 24 }} hours with histogram, KDE, box plot, and statistical markers.</p>
+        <div id="plot-dist-nec" style="width:100%; height:600px;"></div>
         {% endif %}
         {% endif %}
 
         {% if result_infl %}
         <h3>Inflammation</h3>
         <p>{{ result_infl }}</p>
-        {% if image_time_infl %}
+        {% if plot_time_infl %}
         <h4>Time Course</h4>
-        <p class="plot-description">Inflammation response over time following cisplatin exposure. Shows how inflammatory markers evolve, with potential peaks and recovery phases. Multiple lines represent simulation variability.</p>
-        <img src="data:image/png;base64,{{ image_time_infl }}" alt="Inflammation Time Plot" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Interactive inflammation response over time with confidence intervals. Zoom to explore peaks and recovery phases, hover for exact values.</p>
+        <div id="plot-time-infl" style="width:100%; height:500px;"></div>
         {% endif %}
-        {% if image_dist_infl %}
+        {% if plot_dist_infl %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Statistical distribution of inflammation levels at {{ time if time else 48 }} hours. Higher values indicate stronger inflammatory response, with spread showing prediction uncertainty.</p>
-        <img src="data:image/png;base64,{{ image_dist_infl }}" alt="Inflammation Distribution" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Inflammation distribution at {{ time if time else 48 }} hours with interactive statistical visualizations and confidence interval markers.</p>
+        <div id="plot-dist-infl" style="width:100%; height:600px;"></div>
         {% endif %}
         {% endif %}
 
         {% if result_kf %}
         <h3>Kidney Failure</h3>
         <p>{{ result_kf }}</p>
-        {% if image_time_kf %}
+        {% if plot_time_kf %}
         <h4>Time Course</h4>
-        <p class="plot-description">Kidney failure progression over time, representing the cumulative adverse outcome. Shows delayed onset and potential progression patterns. Each line represents a different simulation scenario.</p>
-        <img src="data:image/png;base64,{{ image_time_kf }}" alt="Kidney Failure Time Plot" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Interactive kidney failure progression showing cumulative adverse outcome over time with confidence bands. Explore delayed onset patterns with zoom/pan.</p>
+        <div id="plot-time-kf" style="width:100%; height:500px;"></div>
         {% endif %}
-        {% if image_dist_kf %}
+        {% if plot_dist_kf %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Probability distribution of kidney failure levels at {{ time if time else 48 }} hours. Higher values indicate greater risk of kidney dysfunction, with variability showing model uncertainty.</p>
-        <img src="data:image/png;base64,{{ image_dist_kf }}" alt="Kidney Failure Distribution" style="width:100%; max-width: 700px;">
+        <p class="plot-description">Kidney failure risk distribution at {{ time if time else 48 }} hours with interactive statistical visualization and confidence intervals.</p>
+        <div id="plot-dist-kf" style="width:100%; height:600px;"></div>
         {% endif %}
         {% endif %}
 
@@ -344,6 +347,78 @@
         syncSliderFromInput(doseInput, doseSlider, config[model].dose);
         syncSliderFromInput(timeInput, timeSlider, config[model].time);
       }, 100);
+    </script>
+
+    <!-- Plotly rendering JavaScript -->
+    <script>
+    // Render Plotly plots from JSON passed by Flask
+    const plotConfig = {
+        displayModeBar: true,
+        toImageButtonOptions: {
+            format: 'png',
+            height: 600,
+            width: 1000,
+            scale: 2
+        },
+        displaylogo: false,
+        responsive: true
+    };
+
+    {% if plot_time_dd %}
+    try {
+        const plotDataTimeDd = {{ plot_time_dd | safe }};
+        Plotly.newPlot('plot-time-dd', plotDataTimeDd.data, plotDataTimeDd.layout, plotConfig);
+    } catch (e) { console.error('Error rendering DNA Damage time series:', e); }
+    {% endif %}
+
+    {% if plot_dist_dd %}
+    try {
+        const plotDataDistDd = {{ plot_dist_dd | safe }};
+        Plotly.newPlot('plot-dist-dd', plotDataDistDd.data, plotDataDistDd.layout, plotConfig);
+    } catch (e) { console.error('Error rendering DNA Damage distribution:', e); }
+    {% endif %}
+
+    {% if plot_time_nec %}
+    try {
+        const plotDataTimeNec = {{ plot_time_nec | safe }};
+        Plotly.newPlot('plot-time-nec', plotDataTimeNec.data, plotDataTimeNec.layout, plotConfig);
+    } catch (e) { console.error('Error rendering Necrosis time series:', e); }
+    {% endif %}
+
+    {% if plot_dist_nec %}
+    try {
+        const plotDataDistNec = {{ plot_dist_nec | safe }};
+        Plotly.newPlot('plot-dist-nec', plotDataDistNec.data, plotDataDistNec.layout, plotConfig);
+    } catch (e) { console.error('Error rendering Necrosis distribution:', e); }
+    {% endif %}
+
+    {% if plot_time_infl %}
+    try {
+        const plotDataTimeInfl = {{ plot_time_infl | safe }};
+        Plotly.newPlot('plot-time-infl', plotDataTimeInfl.data, plotDataTimeInfl.layout, plotConfig);
+    } catch (e) { console.error('Error rendering Inflammation time series:', e); }
+    {% endif %}
+
+    {% if plot_dist_infl %}
+    try {
+        const plotDataDistInfl = {{ plot_dist_infl | safe }};
+        Plotly.newPlot('plot-dist-infl', plotDataDistInfl.data, plotDataDistInfl.layout, plotConfig);
+    } catch (e) { console.error('Error rendering Inflammation distribution:', e); }
+    {% endif %}
+
+    {% if plot_time_kf %}
+    try {
+        const plotDataTimeKf = {{ plot_time_kf | safe }};
+        Plotly.newPlot('plot-time-kf', plotDataTimeKf.data, plotDataTimeKf.layout, plotConfig);
+    } catch (e) { console.error('Error rendering Kidney Failure time series:', e); }
+    {% endif %}
+
+    {% if plot_dist_kf %}
+    try {
+        const plotDataDistKf = {{ plot_dist_kf | safe }};
+        Plotly.newPlot('plot-dist-kf', plotDataDistKf.data, plotDataDistKf.layout, plotConfig);
+    } catch (e) { console.error('Error rendering Kidney Failure distribution:', e); }
+    {% endif %}
     </script>
 
 </body>
