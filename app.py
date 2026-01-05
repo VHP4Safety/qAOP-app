@@ -1,10 +1,15 @@
 # === Import required packages ===
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, send_file
+from datetime import datetime
+import os
+import uuid
 import numpy as np
 from scipy.integrate import odeint
 from scipy.stats import gaussian_kde
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import io
 import base64
 import re
@@ -19,10 +24,14 @@ from validation import validate_prediction_request, get_parameter_ranges, Valida
 config = get_config()
 app = Flask(__name__)
 app.config.from_object(config)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # === Initialize logging ===
 setup_logging()
 logger = logging.getLogger("qAOP.app")
+
+# === In-memory storage for report data (avoids cookie size limit) ===
+_report_storage = {}
 
 # === Load pre-calibrated parameter samples from file ===
 try:
@@ -221,49 +230,242 @@ def run_invivo_model(dose, simulation_time, sampled_params):
     except Exception as e:
         raise RuntimeError(f"Invivo model simulation failed: {str(e)}") from e
 
-def plot_distributions(values, label, color, time_index):
-    fig, ax = plt.subplots()
-    ax.hist(values[:, time_index], bins=30, density=True, alpha=0.6, color=color, edgecolor='black')
-    kde = gaussian_kde(values[:, time_index])
-    x_vals = np.linspace(values[:, time_index].min(), values[:, time_index].max(), 300)
-    ax.plot(x_vals, kde(x_vals), color='black')
-    ax.set_title(f'Distribution of {label}')
-    img = io.BytesIO()
-    fig.savefig(img, format='png')
-    img.seek(0)
-    plot_data = base64.b64encode(img.read()).decode('utf-8')
-    plt.close(fig)
-    return plot_data
+# === Helper function for color conversion ===
+def color_to_rgb(color):
+    """Convert color name to RGB values for RGBA"""
+    color_map = {
+        'red': '255, 0, 0',
+        'blue': '0, 0, 255',
+        'green': '0, 128, 0',
+        'purple': '128, 0, 128'
+    }
+    return color_map.get(color, '0, 0, 0')
 
-# === Create time series plot and return as base64 image ===
-def plot_time_series(values, time_points, label, color, dose, unit):
-    fig, ax = plt.subplots(figsize=(10, 6))
+# === Plotly plotting functions ===
+def create_plotly_distribution(values, label, color, time_index, endpoint_stats):
+    """Create interactive distribution plot with Plotly"""
+    final_values = values[:, time_index]
 
-    # Optional: Plot individual traces
-    for i in range(values.shape[0]):
-        ax.plot(time_points, values[i], alpha=0.2, lw=0.5, color=color)
+    # Create figure with histogram and box plot
+    fig = make_subplots(
+        rows=2, cols=1,
+        row_heights=[0.7, 0.3],
+        vertical_spacing=0.1,
+        subplot_titles=(f'Distribution of {label}', 'Box Plot')
+    )
 
-    # Mean and SD across all simulations
-    mean_values = np.mean(values, axis=0)
-    std_values = np.std(values, axis=0)
+    # Histogram with KDE overlay
+    fig.add_trace(
+        go.Histogram(
+            x=final_values,
+            nbinsx=30,
+            name='Distribution',
+            marker_color=color,
+            opacity=0.6,
+            histnorm='probability density'
+        ),
+        row=1, col=1
+    )
 
-    # Plot mean curve in black
-    ax.plot(time_points, mean_values, color="black", linewidth=2, label="Mean")
+    # KDE curve
+    kde = gaussian_kde(final_values)
+    x_vals = np.linspace(final_values.min(), final_values.max(), 300)
+    fig.add_trace(
+        go.Scatter(
+            x=x_vals,
+            y=kde(x_vals),
+            mode='lines',
+            name='KDE',
+            line=dict(color='black', width=2)
+        ),
+        row=1, col=1
+    )
 
-    ax.set_title(f'{label} Levels Over Time (Dose = {dose:.1f} {unit})')
-    ax.set_xlabel('Time (hours)')
-    ax.set_ylabel(f'{label} Levels' if label != "Necrosis" else 'Necrosis (%)')
-    ax.grid(True)
-    ax.legend()
+    # Add statistical markers (mean, median, CI)
+    fig.add_vline(x=endpoint_stats['mean'], line_dash="dash",
+                  line_color="blue", annotation_text="Mean", row=1, col=1)
+    fig.add_vline(x=endpoint_stats['median'], line_dash="dot",
+                  line_color="green", annotation_text="Median", row=1, col=1)
+    fig.add_vline(x=endpoint_stats['percentile_2_5'], line_dash="dash",
+                  line_color="red", opacity=0.5, annotation_text="95% CI", row=1, col=1)
+    fig.add_vline(x=endpoint_stats['percentile_97_5'], line_dash="dash",
+                  line_color="red", opacity=0.5, row=1, col=1)
 
-    # Save and return base64 image
-    img = io.BytesIO()
-    fig.savefig(img, format='png', bbox_inches='tight')
-    img.seek(0)
-    plot_data = base64.b64encode(img.read()).decode('utf-8')
-    plt.close(fig)
-    return plot_data
+    # Box plot
+    fig.add_trace(
+        go.Box(
+            y=final_values,
+            name='Statistics',
+            marker_color=color,
+            boxmean='sd',  # Show mean and std
+            orientation='v'  # Vertical orientation
+        ),
+        row=2, col=1
+    )
 
+    # Update layout for interactivity
+    fig.update_layout(
+        showlegend=True,
+        hovermode='closest',
+        template='plotly_white',
+        height=600
+    )
+
+    fig.update_xaxes(title_text='', row=2, col=1)
+    fig.update_yaxes(title_text=f'{label} Value', row=2, col=1)
+    fig.update_yaxes(title_text='Density', row=1, col=1)
+
+    # Return JSON for frontend rendering
+    return fig.to_json()
+
+def create_plotly_timeseries(values, time_points, label, color, dose, unit, endpoint_stats):
+    """Create interactive time series plot with confidence bands"""
+    fig = go.Figure()
+
+    # Add individual traces (toggleable via legend as a group)
+    for i in range(min(50, values.shape[0])):  # Limit to 50 traces for performance
+        fig.add_trace(
+            go.Scatter(
+                x=time_points,
+                y=values[i],
+                mode='lines',
+                name='Individual Simulations',
+                legendgroup='simulations',
+                showlegend=(i == 0),  # Only show first trace in legend
+                line=dict(color=color, width=0.5),
+                opacity=0.2,
+                hoverinfo='skip'
+            )
+        )
+
+    # 95% Confidence Interval (shaded band)
+    fig.add_trace(
+        go.Scatter(
+            x=time_points,
+            y=endpoint_stats['time_series']['percentile_97_5'],
+            mode='lines',
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo='skip'
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=time_points,
+            y=endpoint_stats['time_series']['percentile_2_5'],
+            mode='lines',
+            line=dict(width=0),
+            fillcolor=f'rgba({color_to_rgb(color)}, 0.2)',
+            fill='tonexty',
+            name='95% CI',
+            hovertemplate='95% CI<extra></extra>'
+        )
+    )
+
+    # IQR band (darker shading)
+    fig.add_trace(
+        go.Scatter(
+            x=time_points,
+            y=endpoint_stats['time_series']['percentile_75'],
+            mode='lines',
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo='skip'
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=time_points,
+            y=endpoint_stats['time_series']['percentile_25'],
+            mode='lines',
+            line=dict(width=0),
+            fillcolor=f'rgba({color_to_rgb(color)}, 0.4)',
+            fill='tonexty',
+            name='IQR (25-75%)',
+        )
+    )
+
+    # Median line (dashed)
+    fig.add_trace(
+        go.Scatter(
+            x=time_points,
+            y=endpoint_stats['time_series']['median'],
+            mode='lines',
+            name='Median',
+            line=dict(color='green', width=2, dash='dot'),
+            hovertemplate='Median: %{y:.2f}<extra></extra>'
+        )
+    )
+
+    # Mean line (bold, primary)
+    fig.add_trace(
+        go.Scatter(
+            x=time_points,
+            y=endpoint_stats['time_series']['mean'],
+            mode='lines',
+            name='Mean',
+            line=dict(color='black', width=3),
+            hovertemplate='Mean: %{y:.2f}<br>Time: %{x:.1f} hrs<extra></extra>'
+        )
+    )
+
+    # Layout
+    fig.update_layout(
+        title=f'{label} Over Time (Dose = {dose:.1f} {unit})',
+        xaxis_title='Time (hours)',
+        yaxis_title=f'{label} Level',
+        hovermode='x unified',
+        template='plotly_white',
+        height=500,
+        showlegend=True
+    )
+
+    # Return JSON for frontend rendering
+    return fig.to_json()
+
+def create_plotly_dose_response(dose_data, endpoint_name, model_type):
+    """Create dose-response curve plot (web UI only, no API endpoint)"""
+    doses = dose_data['doses']
+    means = dose_data['means']
+    ci_lower = dose_data['ci_lower']
+    ci_upper = dose_data['ci_upper']
+
+    fig = go.Figure()
+
+    # Error bars for 95% CI
+    fig.add_trace(
+        go.Scatter(
+            x=doses,
+            y=means,
+            mode='lines+markers',
+            name=endpoint_name.replace('_', ' ').title(),
+            error_y=dict(
+                type='data',
+                symmetric=False,
+                array=[u - m for u, m in zip(ci_upper, means)],
+                arrayminus=[m - l for m, l in zip(means, ci_lower)],
+                color='rgba(0,0,0,0.3)'
+            ),
+            marker=dict(size=10),
+            line=dict(width=2),
+            hovertemplate='Dose: %{x}<br>Mean: %{y:.2f}<br>95% CI: [%{customdata[0]:.2f}, %{customdata[1]:.2f}]<extra></extra>',
+            customdata=list(zip(ci_lower, ci_upper))
+        )
+    )
+
+    # Layout
+    unit = 'μM' if model_type == 'invitro' else 'mg/kg'
+    fig.update_layout(
+        title=f'Dose-Response Curve: {endpoint_name.replace("_", " ").title()}',
+        xaxis_title=f'Dose ({unit})',
+        yaxis_title='Response Value',
+        xaxis_type='log',  # Logarithmic dose axis
+        template='plotly_white',
+        height=500,
+        showlegend=True
+    )
+
+    return fig.to_json()
 
 # === API Routes ===
 
@@ -411,13 +613,20 @@ def predict():
                         "median": float(np.median(dd_vals[:, idx])),
                         "min": float(np.min(dd_vals[:, idx])),
                         "max": float(np.max(dd_vals[:, idx])),
+                        "percentile_2_5": float(np.percentile(dd_vals[:, idx], 2.5)),
                         "percentile_25": float(np.percentile(dd_vals[:, idx], 25)),
-                        "percentile_75": float(np.percentile(dd_vals[:, idx], 75))
+                        "percentile_75": float(np.percentile(dd_vals[:, idx], 75)),
+                        "percentile_97_5": float(np.percentile(dd_vals[:, idx], 97.5))
                     },
                     "time_series": {
                         "time_points": t_vals.tolist(),
                         "mean": np.mean(dd_vals, axis=0).tolist(),
-                        "std": np.std(dd_vals, axis=0).tolist()
+                        "std": np.std(dd_vals, axis=0).tolist(),
+                        "median": np.median(dd_vals, axis=0).tolist(),
+                        "percentile_2_5": np.percentile(dd_vals, 2.5, axis=0).tolist(),
+                        "percentile_25": np.percentile(dd_vals, 25, axis=0).tolist(),
+                        "percentile_75": np.percentile(dd_vals, 75, axis=0).tolist(),
+                        "percentile_97_5": np.percentile(dd_vals, 97.5, axis=0).tolist()
                     }
                 },
                 "necrosis": {
@@ -427,13 +636,20 @@ def predict():
                         "median": float(np.median(necrosis_vals[:, idx])),
                         "min": float(np.min(necrosis_vals[:, idx])),
                         "max": float(np.max(necrosis_vals[:, idx])),
+                        "percentile_2_5": float(np.percentile(necrosis_vals[:, idx], 2.5)),
                         "percentile_25": float(np.percentile(necrosis_vals[:, idx], 25)),
-                        "percentile_75": float(np.percentile(necrosis_vals[:, idx], 75))
+                        "percentile_75": float(np.percentile(necrosis_vals[:, idx], 75)),
+                        "percentile_97_5": float(np.percentile(necrosis_vals[:, idx], 97.5))
                     },
                     "time_series": {
                         "time_points": t_vals.tolist(),
                         "mean": np.mean(necrosis_vals, axis=0).tolist(),
-                        "std": np.std(necrosis_vals, axis=0).tolist()
+                        "std": np.std(necrosis_vals, axis=0).tolist(),
+                        "median": np.median(necrosis_vals, axis=0).tolist(),
+                        "percentile_2_5": np.percentile(necrosis_vals, 2.5, axis=0).tolist(),
+                        "percentile_25": np.percentile(necrosis_vals, 25, axis=0).tolist(),
+                        "percentile_75": np.percentile(necrosis_vals, 75, axis=0).tolist(),
+                        "percentile_97_5": np.percentile(necrosis_vals, 97.5, axis=0).tolist()
                     }
                 }
             }
@@ -451,16 +667,23 @@ def predict():
                     "median": float(np.median(inflammation_vals[:, idx])),
                     "min": float(np.min(inflammation_vals[:, idx])),
                     "max": float(np.max(inflammation_vals[:, idx])),
+                    "percentile_2_5": float(np.percentile(inflammation_vals[:, idx], 2.5)),
                     "percentile_25": float(np.percentile(inflammation_vals[:, idx], 25)),
-                    "percentile_75": float(np.percentile(inflammation_vals[:, idx], 75))
+                    "percentile_75": float(np.percentile(inflammation_vals[:, idx], 75)),
+                    "percentile_97_5": float(np.percentile(inflammation_vals[:, idx], 97.5))
                 },
                 "time_series": {
                     "time_points": t_vals.tolist(),
                     "mean": np.mean(inflammation_vals, axis=0).tolist(),
-                    "std": np.std(inflammation_vals, axis=0).tolist()
+                    "std": np.std(inflammation_vals, axis=0).tolist(),
+                    "median": np.median(inflammation_vals, axis=0).tolist(),
+                    "percentile_2_5": np.percentile(inflammation_vals, 2.5, axis=0).tolist(),
+                    "percentile_25": np.percentile(inflammation_vals, 25, axis=0).tolist(),
+                    "percentile_75": np.percentile(inflammation_vals, 75, axis=0).tolist(),
+                    "percentile_97_5": np.percentile(inflammation_vals, 97.5, axis=0).tolist()
                 }
             }
-            
+
             response["endpoints"]["kidney_failure"] = {
                 "final_value": {
                     "mean": float(np.mean(kf_vals[:, idx])),
@@ -468,13 +691,20 @@ def predict():
                     "median": float(np.median(kf_vals[:, idx])),
                     "min": float(np.min(kf_vals[:, idx])),
                     "max": float(np.max(kf_vals[:, idx])),
+                    "percentile_2_5": float(np.percentile(kf_vals[:, idx], 2.5)),
                     "percentile_25": float(np.percentile(kf_vals[:, idx], 25)),
-                    "percentile_75": float(np.percentile(kf_vals[:, idx], 75))
+                    "percentile_75": float(np.percentile(kf_vals[:, idx], 75)),
+                    "percentile_97_5": float(np.percentile(kf_vals[:, idx], 97.5))
                 },
                 "time_series": {
                     "time_points": t_vals.tolist(),
                     "mean": np.mean(kf_vals, axis=0).tolist(),
-                    "std": np.std(kf_vals, axis=0).tolist()
+                    "std": np.std(kf_vals, axis=0).tolist(),
+                    "median": np.median(kf_vals, axis=0).tolist(),
+                    "percentile_2_5": np.percentile(kf_vals, 2.5, axis=0).tolist(),
+                    "percentile_25": np.percentile(kf_vals, 25, axis=0).tolist(),
+                    "percentile_75": np.percentile(kf_vals, 75, axis=0).tolist(),
+                    "percentile_97_5": np.percentile(kf_vals, 97.5, axis=0).tolist()
                 }
             }
         
@@ -562,8 +792,8 @@ def index():
 
     # Initialize results
     result_dd = result_nec = result_infl = result_kf = None
-    img_dist_dd = img_dist_nec = img_dist_infl = img_dist_kf = None
-    img_time_dd = img_time_nec = img_time_infl = img_time_kf = None
+    plot_dist_dd = plot_dist_nec = plot_dist_infl = plot_dist_kf = None
+    plot_time_dd = plot_time_nec = plot_time_infl = plot_time_kf = None
 
     if request.method == "POST":
         model_type = request.form.get("model", "invitro")  # Capture model type
@@ -614,15 +844,53 @@ def index():
         mean_dd = dd_vals[:, idx].mean()
         std_dd = dd_vals[:, idx].std()
         result_dd = f"Predicted DNA Damage at {time_param:.1f} h: Mean = {mean_dd:.2f}, Std = {std_dd:.2f}"
-        img_dist_dd = plot_distributions(dd_vals, "DNA Damage", "red", idx)
-        img_time_dd = plot_time_series(dd_vals, t_vals, "DNA Damage", "red", dose, unit)
+
+        # Prepare endpoint stats for Plotly
+        dd_stats = {
+            'mean': float(np.mean(dd_vals[:, idx])),
+            'median': float(np.median(dd_vals[:, idx])),
+            'percentile_2_5': float(np.percentile(dd_vals[:, idx], 2.5)),
+            'percentile_25': float(np.percentile(dd_vals[:, idx], 25)),
+            'percentile_75': float(np.percentile(dd_vals[:, idx], 75)),
+            'percentile_97_5': float(np.percentile(dd_vals[:, idx], 97.5)),
+            'time_series': {
+                'mean': np.mean(dd_vals, axis=0).tolist(),
+                'median': np.median(dd_vals, axis=0).tolist(),
+                'percentile_2_5': np.percentile(dd_vals, 2.5, axis=0).tolist(),
+                'percentile_25': np.percentile(dd_vals, 25, axis=0).tolist(),
+                'percentile_75': np.percentile(dd_vals, 75, axis=0).tolist(),
+                'percentile_97_5': np.percentile(dd_vals, 97.5, axis=0).tolist(),
+            }
+        }
+
+        plot_dist_dd = create_plotly_distribution(dd_vals, "DNA Damage", "red", idx, dd_stats)
+        plot_time_dd = create_plotly_timeseries(dd_vals, t_vals, "DNA Damage", "red", dose, unit, dd_stats)
 
         # Necrosis
         mean_nec = necrosis_vals[:, idx].mean()
         std_nec = necrosis_vals[:, idx].std()
         result_nec = f"Predicted Necrosis at {time_param:.1f} h: Mean = {mean_nec:.2f}%, Std = {std_nec:.2f}%"
-        img_dist_nec = plot_distributions(necrosis_vals, "Necrosis", "blue", idx)
-        img_time_nec = plot_time_series(necrosis_vals, t_vals, "Necrosis", "blue", dose, unit)
+
+        # Prepare endpoint stats for Plotly
+        nec_stats = {
+            'mean': float(np.mean(necrosis_vals[:, idx])),
+            'median': float(np.median(necrosis_vals[:, idx])),
+            'percentile_2_5': float(np.percentile(necrosis_vals[:, idx], 2.5)),
+            'percentile_25': float(np.percentile(necrosis_vals[:, idx], 25)),
+            'percentile_75': float(np.percentile(necrosis_vals[:, idx], 75)),
+            'percentile_97_5': float(np.percentile(necrosis_vals[:, idx], 97.5)),
+            'time_series': {
+                'mean': np.mean(necrosis_vals, axis=0).tolist(),
+                'median': np.median(necrosis_vals, axis=0).tolist(),
+                'percentile_2_5': np.percentile(necrosis_vals, 2.5, axis=0).tolist(),
+                'percentile_25': np.percentile(necrosis_vals, 25, axis=0).tolist(),
+                'percentile_75': np.percentile(necrosis_vals, 75, axis=0).tolist(),
+                'percentile_97_5': np.percentile(necrosis_vals, 97.5, axis=0).tolist(),
+            }
+        }
+
+        plot_dist_nec = create_plotly_distribution(necrosis_vals, "Necrosis", "blue", idx, nec_stats)
+        plot_time_nec = create_plotly_timeseries(necrosis_vals, t_vals, "Necrosis", "blue", dose, unit, nec_stats)
 
         # If in vivo, also plot Inflammation and Kidney Failure
         if model_type == "invivo":
@@ -632,14 +900,52 @@ def index():
             mean_infl = inflammation_vals[:, idx].mean()
             std_infl = inflammation_vals[:, idx].std()
             result_infl = f"Predicted Inflammation at {time_param:.1f} h: Mean = {mean_infl:.2f}, Std = {std_infl:.2f}"
-            img_dist_infl = plot_distributions(inflammation_vals, "Inflammation", "green", idx)
-            img_time_infl = plot_time_series(inflammation_vals, t_vals, "Inflammation", "green", dose, unit)
+
+            # Prepare endpoint stats for Plotly
+            infl_stats = {
+                'mean': float(np.mean(inflammation_vals[:, idx])),
+                'median': float(np.median(inflammation_vals[:, idx])),
+                'percentile_2_5': float(np.percentile(inflammation_vals[:, idx], 2.5)),
+                'percentile_25': float(np.percentile(inflammation_vals[:, idx], 25)),
+                'percentile_75': float(np.percentile(inflammation_vals[:, idx], 75)),
+                'percentile_97_5': float(np.percentile(inflammation_vals[:, idx], 97.5)),
+                'time_series': {
+                    'mean': np.mean(inflammation_vals, axis=0).tolist(),
+                    'median': np.median(inflammation_vals, axis=0).tolist(),
+                    'percentile_2_5': np.percentile(inflammation_vals, 2.5, axis=0).tolist(),
+                    'percentile_25': np.percentile(inflammation_vals, 25, axis=0).tolist(),
+                    'percentile_75': np.percentile(inflammation_vals, 75, axis=0).tolist(),
+                    'percentile_97_5': np.percentile(inflammation_vals, 97.5, axis=0).tolist(),
+                }
+            }
+
+            plot_dist_infl = create_plotly_distribution(inflammation_vals, "Inflammation", "green", idx, infl_stats)
+            plot_time_infl = create_plotly_timeseries(inflammation_vals, t_vals, "Inflammation", "green", dose, unit, infl_stats)
 
             mean_kf = kf_vals[:, idx].mean()
             std_kf = kf_vals[:, idx].std()
             result_kf = f"Predicted Kidney Failure at {time_param:.1f} h: Mean = {mean_kf:.2f}, Std = {std_kf:.2f}"
-            img_dist_kf = plot_distributions(kf_vals, "Kidney Failure", "purple", idx)
-            img_time_kf = plot_time_series(kf_vals, t_vals, "Kidney Failure", "purple", dose, unit)
+
+            # Prepare endpoint stats for Plotly
+            kf_stats = {
+                'mean': float(np.mean(kf_vals[:, idx])),
+                'median': float(np.median(kf_vals[:, idx])),
+                'percentile_2_5': float(np.percentile(kf_vals[:, idx], 2.5)),
+                'percentile_25': float(np.percentile(kf_vals[:, idx], 25)),
+                'percentile_75': float(np.percentile(kf_vals[:, idx], 75)),
+                'percentile_97_5': float(np.percentile(kf_vals[:, idx], 97.5)),
+                'time_series': {
+                    'mean': np.mean(kf_vals, axis=0).tolist(),
+                    'median': np.median(kf_vals, axis=0).tolist(),
+                    'percentile_2_5': np.percentile(kf_vals, 2.5, axis=0).tolist(),
+                    'percentile_25': np.percentile(kf_vals, 25, axis=0).tolist(),
+                    'percentile_75': np.percentile(kf_vals, 75, axis=0).tolist(),
+                    'percentile_97_5': np.percentile(kf_vals, 97.5, axis=0).tolist(),
+                }
+            }
+
+            plot_dist_kf = create_plotly_distribution(kf_vals, "Kidney Failure", "purple", idx, kf_stats)
+            plot_time_kf = create_plotly_timeseries(kf_vals, t_vals, "Kidney Failure", "purple", dose, unit, kf_stats)
     
     defaults = {
     "invitro": {"dose": 50, "time": 72},
@@ -648,7 +954,37 @@ def index():
 
     # Get parameter ranges for the frontend
     param_ranges = get_parameter_ranges()
-    
+
+    # Store results for report generation (server-side to avoid cookie size limit)
+    if result_dd:  # Only store if simulation was run
+        session_id = str(uuid.uuid4())
+        _report_storage[session_id] = {
+            'model_type': model_type,
+            'dose': dose,
+            'time': time_param if 'time_param' in locals() else time,
+            'dose_unit': unit if 'unit' in locals() else ('μM' if model_type == 'invitro' else 'mg/kg'),
+            'simulation_count': config.SIMULATION_COUNT,
+            'plots': {
+                'plot_dist_dd': plot_dist_dd,
+                'plot_time_dd': plot_time_dd,
+                'plot_dist_nec': plot_dist_nec,
+                'plot_time_nec': plot_time_nec,
+                'plot_dist_infl': plot_dist_infl,
+                'plot_time_infl': plot_time_infl,
+                'plot_dist_kf': plot_dist_kf,
+                'plot_time_kf': plot_time_kf
+            },
+            'stats_text': {
+                'result_dd': result_dd,
+                'result_nec': result_nec,
+                'result_infl': result_infl,
+                'result_kf': result_kf
+            },
+            'timestamp': datetime.now().isoformat()
+        }
+        # Store only the session ID in cookie (small)
+        session['report_id'] = session_id
+
     return render_template(
     "index.html",
     model_type=model_type,
@@ -660,12 +996,40 @@ def index():
     default_invivo_time=defaults["invivo"]["time"],
     parameter_ranges=param_ranges,
     result_dd=result_dd, result_nec=result_nec,
-    image_dist_dd=img_dist_dd, image_time_dd=img_time_dd,
-    image_dist_nec=img_dist_nec, image_time_nec=img_time_nec,
-    result_infl=result_infl, image_dist_infl=img_dist_infl, image_time_infl=img_time_infl,
-    result_kf=result_kf, image_dist_kf=img_dist_kf, image_time_kf=img_time_kf
+    plot_dist_dd=plot_dist_dd, plot_time_dd=plot_time_dd,
+    plot_dist_nec=plot_dist_nec, plot_time_nec=plot_time_nec,
+    result_infl=result_infl, plot_dist_infl=plot_dist_infl, plot_time_infl=plot_time_infl,
+    result_kf=result_kf, plot_dist_kf=plot_dist_kf, plot_time_kf=plot_time_kf
 )
 
+
+@app.route("/download-report")
+@monitor_performance
+def download_report():
+    """Generate and download HTML report from stored data"""
+    if 'report_id' not in session:
+        return "No results available. Please run a simulation first.", 400
+
+    report_id = session['report_id']
+    if report_id not in _report_storage:
+        return "Report data expired. Please run the simulation again.", 400
+
+    from report_generator import generate_html_report
+
+    results_data = _report_storage[report_id]
+    html_content = generate_html_report(results_data)
+
+    # Create filename with timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    model = results_data['model_type']
+    filename = f'qAOP_Report_{model}_{timestamp}.html'
+
+    return send_file(
+        io.BytesIO(html_content.encode('utf-8')),
+        mimetype='text/html',
+        as_attachment=True,
+        download_name=filename
+    )
 
 
 # === Run the Flask app ===
