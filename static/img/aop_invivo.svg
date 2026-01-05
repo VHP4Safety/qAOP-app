@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="150" viewBox="0 0 800 150">
+  <rect width="800" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2" rx="8"/>
+  <text x="400" y="70" text-anchor="middle" font-family="Arial" font-size="32" font-weight="bold" fill="#999">
+    PLACEHOLDER
+  </text>
+  <text x="400" y="100" text-anchor="middle" font-family="Arial" font-size="18" fill="#666">
+    In Vivo AOP Diagram
+  </text>
+</svg>

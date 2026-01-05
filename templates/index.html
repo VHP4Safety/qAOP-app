@@ -10,34 +10,48 @@
 </head>
 <body>
     <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety Logo" class="center">
-    <h2 class="subheader">This qAOP tool is under development</h2>
 
     <header>
         <h1>qAOP Prediction - Cisplatin-Induced Nephrotoxicity</h1>
     </header>
 
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+        <div class="tab-container">
+            <button type="button" class="tab-button {% if model_type == 'invitro' or not model_type %}active{% endif %}"
+                    data-model="invitro" id="tab-invitro">
+                Kidney - In Vitro
+            </button>
+            <button type="button" class="tab-button {% if model_type == 'invivo' %}active{% endif %}"
+                    data-model="invivo" id="tab-invivo">
+                Kidney - In Vivo
+            </button>
+            <button type="button" class="tab-button disabled"
+                    data-model="thyroid" id="tab-thyroid" disabled
+                    title="Thyroid model under development">
+                Thyroid
+                <span class="coming-soon-badge">Coming Soon</span>
+            </button>
+        </div>
+    </div>
+
     <div class="container">
         <form method="POST">
-            <label for="model">
-                Select Model:
-                <sup><img src="{{ url_for('static', filename='img/question-circle.svg') }}"
-                         alt="tooltip" width="12" height="12"
-                         title="Choose between in vitro (RPTEC/TERT1) and in vivo (rat kidney)."></sup>
-            </label><br>
-            <select name="model" id="model" required>
-                
-
-                <option value="invitro" {% if model_type == "invitro" %}selected{% endif %}>
-                    In Vitro
-                </option>
-                <option value="invivo" {% if model_type == "invivo" %}selected{% endif %}>
-                    In Vivo
-                </option>
-            </select><br><br>
+            <!-- Hidden input for model selection (controlled by tabs) -->
+            <input type="hidden" name="model" id="model" value="{% if model_type %}{{ model_type }}{% else %}invitro{% endif %}" required>
 
             <div id="model-explanation" class="explanation">
             </div>
-    
+
+            <!-- AOP Diagram Section -->
+            <div class="aop-diagram-section">
+                <h3>Adverse Outcome Pathway</h3>
+                <img id="aop-diagram"
+                     src="{{ url_for('static', filename='img/aop_invitro.svg') }}"
+                     alt="AOP Diagram"
+                     class="aop-diagram-image">
+            </div>
+
             <!-- Dose Input with Slider -->
             <div class="input-group">
                 <label for="dose">
@@ -107,9 +121,9 @@
             <input type="submit" value="Run Simulation">
         </form>
     </div>
-    
+
+    {% if result_dd %}
     <div class="container">
-        {% if result_dd %}
         <div style="margin: 20px 0; text-align: center;">
             <a href="{{ url_for('download_report') }}" class="download-btn" style="display: inline-block; padding: 12px 24px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">
                 📄 Download Report
@@ -126,7 +140,6 @@
         <h4>Distribution at Selected Time</h4>
         <p class="plot-description">Statistical distribution of DNA damage at {{ time if time else 24 }} hours with interactive histogram, KDE curve, and box plot. Markers show mean, median, and 95% CI. Zoom and hover for details.</p>
         <div id="plot-dist-dd" style="width:100%; height:600px;"></div>
-        {% endif %}
         {% endif %}
 
         {% if result_nec %}
@@ -175,6 +188,7 @@
         {% endif %}
 
     </div>
+    {% endif %}
 
     <footer>
         <p class="footer-content">
@@ -182,6 +196,36 @@
         </p>
     </footer>
     <script>
+      // Tab switching functionality
+      const tabButtons = document.querySelectorAll('.tab-button:not(.disabled)');
+      const modelInput = document.getElementById('model');
+
+      function switchTab(newModel) {
+        // Update active tab styling
+        tabButtons.forEach(btn => {
+          btn.classList.remove('active');
+          if (btn.dataset.model === newModel) {
+            btn.classList.add('active');
+          }
+        });
+
+        // Update hidden input value for form submission
+        modelInput.value = newModel;
+
+        // Trigger change event to update UI
+        const event = new Event('change');
+        modelInput.dispatchEvent(event);
+      }
+
+      // Add click handlers to tab buttons
+      tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          const newModel = this.dataset.model;
+          switchTab(newModel);
+        });
+      });
+
+      // Model selection (now using hidden input instead of select)
       const modelSelect = document.getElementById('model');
       const doseInput = document.getElementById('dose');
       const timeInput = document.getElementById('time');
@@ -335,17 +379,43 @@
         invitro: `<p>RPTEC/TERT1 cells were exposed to cisplatin across a concentration gradient of 1–50 µM, with transcriptomic profiling and propidium iodide staining performed over 72 h.</p>`,
         invivo: `<p>Rats were administered a single intravenous dose of 5 mg/kg cisplatin; transcriptomic analyses of outer-medulla proximal tubule cells and comprehensive renal histopathology were conducted at serial intervals over 28 days (672 h).</p>`
       };
-      
+
       function updateExplanation() {
         explanation.innerHTML = texts[modelSelect.value];
       }
-      
+
+      // AOP Diagram switching
+      const aopDiagram = document.getElementById('aop-diagram');
+      const aopDiagrams = {
+        invitro: "{{ url_for('static', filename='img/aop_invitro.svg') }}",
+        invivo: "{{ url_for('static', filename='img/aop_invivo.svg') }}",
+        thyroid: "{{ url_for('static', filename='img/aop_thyroid.svg') }}"
+      };
+
+      function updateAOPDiagram() {
+        const model = modelSelect.value;
+        if (aopDiagram && aopDiagrams[model]) {
+          aopDiagram.src = aopDiagrams[model];
+          aopDiagram.alt = model.charAt(0).toUpperCase() + model.slice(1) + ' AOP Diagram';
+        }
+      }
+
       modelSelect.addEventListener('change', updateExplanation);
+      modelSelect.addEventListener('change', updateAOPDiagram);
       
       // Initialize everything
       updateModelUI();
       updateExplanation();
-      
+      updateAOPDiagram();
+
+      // Initialize correct tab on page load
+      const initialModel = modelSelect.value || 'invitro';
+      tabButtons.forEach(btn => {
+        if (btn.dataset.model === initialModel) {
+          btn.classList.add('active');
+        }
+      });
+
       // Force sync sliders with current input values on page load
       setTimeout(() => {
         const model = modelSelect.value;
