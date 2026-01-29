@@ -869,7 +869,7 @@ def index():
         # Necrosis
         mean_nec = necrosis_vals[:, idx].mean()
         std_nec = necrosis_vals[:, idx].std()
-        result_nec = f"Predicted Necrosis at {time_param:.1f} h: Mean = {mean_nec:.2f}%, Std = {std_nec:.2f}%"
+        result_nec = f"Predicted fraction of necrotic cells at {time_param:.1f} h: Mean = {mean_nec:.4f}, Std = {std_nec:.4f}"
 
         # Prepare endpoint stats for Plotly
         nec_stats = {

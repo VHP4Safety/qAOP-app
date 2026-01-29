@@ -84,7 +84,7 @@ def generate_html_report(results_data):
     html += '''
     <div class="footer">
         <p>Generated: ''' + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '''</p>
-        <p>qAOP Predictor - Cisplatin-Induced Nephrotoxicity Model</p>
+        <p>qAOP Predictor</p>
         <p><a href="https://github.com/VHP4Safety/qAOP-app">GitHub Repository</a></p>
     </div>
 

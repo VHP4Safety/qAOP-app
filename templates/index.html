@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>qAOP Prediction - Nephrotoxicity</title>
+    <title>qAOP Prediction</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/qAOPapp_logo_favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 
     <!-- Plotly.js for interactive plots (v2.28.0+ required for bdata support from Plotly.py 6.x) -->
@@ -12,7 +13,10 @@
     <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety Logo" class="center">
 
     <header>
-        <h1>qAOP Prediction - Cisplatin-Induced Nephrotoxicity</h1>
+        <div class="header-content">
+            <img src="{{ url_for('static', filename='img/qAOPapp_logo_header.png') }}" alt="qAOP Logo" class="header-logo">
+            <h1>qAOP Prediction</h1>
+        </div>
     </header>
 
     <!-- Tab Navigation -->
@@ -70,7 +74,7 @@
                     <div class="slider-labels">
                         <span id="dose-min-label">0.001 μM</span>
                         <span class="slider-scale-info" id="dose-scale-info">Log scale</span>
-                        <span id="dose-max-label">1000 μM</span>
+                        <span id="dose-max-label">150 μM</span>
                     </div>
                 </div>
                 <input type="number"
@@ -81,7 +85,7 @@
                        required
                        value="{{ dose if dose is not none else 50 }}">
                 <div class="range-info">
-                    <small id="dose-range-info">Range: 0.001 - 1000 μM (logarithmic scale)</small>
+                    <small id="dose-range-info">Range: 0.001 - 150 μM (logarithmic scale)</small>
                 </div>
             </div>
     
@@ -191,9 +195,21 @@
     {% endif %}
 
     <footer>
-        <p class="footer-content">
-            View the source code on&nbsp<a href="https://github.com/VHP4Safety/qAOP-app" target="_blank">GitHub</a>&nbsp
-        </p>
+      <p class="footer-content">
+        <span class="footer-links">
+          <a href="https://doi.org/10.1093/toxsci/kfaf177" target="_blank" rel="noopener noreferrer">
+            Paper (Toxicological Sciences, 2026)
+          </a>
+          <span class="footer-sep">•</span>
+          <a href="https://github.com/VHP4Safety/qAOP-app" target="_blank" rel="noopener noreferrer">
+            GitHub repository
+          </a>
+        </span>
+        <br>
+        <span class="footer-cite">
+          Di Tillio <em>et&nbsp;al.</em> — Quantitative AOP Modeling of Cisplatin-Induced Nephrotoxicity
+        </span>
+      </p>
     </footer>
     <script>
       // Tab switching functionality
@@ -244,11 +260,11 @@
       // Parameter ranges and defaults
       const config = {
         invitro: {
-          dose: { min: 0.001, max: 1000, default: 50, unit: 'μM', logScale: true },
+          dose: { min: 0.001, max: 150, default: 50, unit: 'μM', logScale: true },
           time: { min: 0.1, max: 168, default: 24, unit: 'hours', logScale: false }
         },
         invivo: {
-          dose: { min: 0.1, max: 50, default: 5, unit: 'mg/kg', logScale: true },
+          dose: { min: 0.1, max: 10, default: 5, unit: 'mg/kg', logScale: true },
           time: { min: 1, max: 2160, default: 48, unit: 'hours', logScale: false }
         }
       };

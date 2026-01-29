@@ -2,7 +2,7 @@
 
 A quantitative Adverse Outcome Pathway (qAOP) simulation tool that provides predictions of cisplatin-induced nephrotoxicity using ODE-based mathematical models.
 
-## 🎯 Features
+## Features
 
 - **In Vitro Model**: 6-compartment RPTEC/TERT1 cell culture model
 - **In Vivo Model**: 8-compartment rat kidney model  
@@ -13,7 +13,7 @@ A quantitative Adverse Outcome Pathway (qAOP) simulation tool that provides pred
 - **Configuration**: Environment-based configuration management
 - **Testing**: Unit tests for mathematical model validation
 
-## 📊 Model Outputs
+## Model Outputs
 
 ### In Vitro Model
 - **DNA Damage**: Relative DNA damage levels
@@ -25,7 +25,7 @@ A quantitative Adverse Outcome Pathway (qAOP) simulation tool that provides pred
 - **Inflammation**: Inflammatory response
 - **Kidney Failure**: Kidney function impairment
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Python Virtual Environment
 
@@ -59,7 +59,7 @@ docker run -p 5000:5000 qaop-predictor
 
 The app will be available at: http://localhost:5000
 
-## ⚙️ Configuration
+## Configuration
 
 The application supports environment-based configuration:
 
@@ -86,7 +86,7 @@ cp .env.example .env
 # Edit .env with your preferred settings
 ```
 
-## 🌐 API Documentation
+## API Documentation
 
 The application provides a REST API for programmatic access:
 
@@ -266,7 +266,7 @@ curl -X POST http://localhost:5000/api/predict \
   }'
 ```
 
-## 🧪 Testing
+## Testing
 
 Run the test suite to validate model functionality:
 
@@ -282,7 +282,7 @@ python -m pytest test_validation.py -v
 python test_api.py
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 qAOP-app/
@@ -309,7 +309,7 @@ qAOP-app/
     └── test_api.py
 ```
 
-## 🔒 Parameter Validation
+## Parameter Validation
 
 The application validates input parameters against scientifically reasonable ranges:
 
@@ -324,7 +324,7 @@ The application validates input parameters against scientifically reasonable ran
 ### Simulation Parameters
 - **Simulation Count**: 1 - 1000 Monte Carlo iterations
 
-## 📈 Model Details
+## Model Details
 
 ### Mathematical Framework
 - **ODE Integration**: scipy.integrate.odeint
@@ -337,7 +337,7 @@ The application validates input parameters against scientifically reasonable ran
 - **In Vivo**: Calibrated against rat nephrotoxicity studies  
 - **Parameters**: Pre-computed Bayesian parameter posteriors
 
-## 🚀 Deployment
+## Deployment
 
 ### Production Configuration
 ```bash
@@ -353,7 +353,7 @@ export SIMULATION_COUNT=250
 docker run -p 8080:8080 -e FLASK_PORT=8080 -e FLASK_ENV=production qaop-predictor
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -362,11 +362,11 @@ docker run -p 8080:8080 -e FLASK_PORT=8080 -e FLASK_ENV=production qaop-predicto
 5. Push to branch (`git push origin feature/amazing-feature`)
 6. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is part of the VHP4Safety consortium. Please refer to the project license for usage terms.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - VHP4Safety consortium for project funding and support
 - qAOP modeling framework development team
