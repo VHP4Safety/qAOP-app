@@ -122,38 +122,24 @@
                 </div>
             </div>
     
-            <input type="submit" value="Run Simulation">
+            <input type="submit" value="Run Simulation" id="submit-btn">
         </form>
     </div>
 
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Running simulation...</p>
+        </div>
+    </div>
+
     {% if result_dd %}
-    <div class="container">
+    <div class="container" id="results-container">
         <div style="margin: 20px 0; text-align: center;">
             <a href="{{ url_for('download_report') }}" class="download-btn" style="display: inline-block; padding: 12px 24px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">
                 Download Report
             </a>
-        </div>
-
-        <!-- Time Selector for Distribution Plots (Issue #19) -->
-        <div class="time-selector-section">
-            <h4>Select Time Point for Distributions</h4>
-            <p class="time-selector-description">Use the slider below to explore distributions at different time points without re-running the simulation.</p>
-            <div class="slider-container">
-                <input type="range"
-                       id="distribution-time-slider"
-                       class="slider"
-                       min="0" max="99"
-                       step="1"
-                       value="99">
-                <div class="slider-labels">
-                    <span id="dist-time-min-label">0 h</span>
-                    <span class="slider-scale-info">Linear scale</span>
-                    <span id="dist-time-max-label">{{ time }} h</span>
-                </div>
-            </div>
-            <div class="time-display">
-                <strong>Selected Time:</strong> <span id="distribution-time-value">{{ time }}</span> hours
-            </div>
         </div>
 
         <h3>DNA Damage</h3>
@@ -165,8 +151,18 @@
         {% endif %}
         {% if plot_dist_dd %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Statistical distribution of DNA damage at {{ time if time else 24 }} hours with interactive histogram, KDE curve, and box plot. Markers show mean, median, and 95% CI. Zoom and hover for details.</p>
-        <div id="plot-dist-dd" style="width:100%; height:600px;"></div>
+        <p class="plot-description">Statistical distribution of DNA damage at <span class="dist-time-label">{{ time if time else 24 }}</span> hours with interactive histogram, KDE curve, and box plot. Markers show mean, median, and 95% CI. Zoom and hover for details.</p>
+        <div class="plot-with-slider">
+            <div id="plot-dist-dd" style="width:100%; height:600px;"></div>
+            <div class="dist-time-slider-container" data-endpoint="dd">
+                <div class="dist-slider-row">
+                    <span class="dist-slider-label">Time:</span>
+                    <input type="range" class="dist-time-slider slider" data-endpoint="dd" min="0" max="99" step="1" value="99">
+                    <span class="dist-time-value" data-endpoint="dd">{{ time if time else 24 }}</span>
+                    <span class="dist-slider-unit">h</span>
+                </div>
+            </div>
+        </div>
         {% endif %}
 
         {% if result_nec %}
@@ -179,8 +175,18 @@
         {% endif %}
         {% if plot_dist_nec %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Interactive distribution showing necrosis levels at {{ time if time else 24 }} hours with histogram, KDE, box plot, and statistical markers.</p>
-        <div id="plot-dist-nec" style="width:100%; height:600px;"></div>
+        <p class="plot-description">Interactive distribution showing necrosis levels at <span class="dist-time-label">{{ time if time else 24 }}</span> hours with histogram, KDE, box plot, and statistical markers.</p>
+        <div class="plot-with-slider">
+            <div id="plot-dist-nec" style="width:100%; height:600px;"></div>
+            <div class="dist-time-slider-container" data-endpoint="nec">
+                <div class="dist-slider-row">
+                    <span class="dist-slider-label">Time:</span>
+                    <input type="range" class="dist-time-slider slider" data-endpoint="nec" min="0" max="99" step="1" value="99">
+                    <span class="dist-time-value" data-endpoint="nec">{{ time if time else 24 }}</span>
+                    <span class="dist-slider-unit">h</span>
+                </div>
+            </div>
+        </div>
         {% endif %}
         {% endif %}
 
@@ -194,8 +200,18 @@
         {% endif %}
         {% if plot_dist_infl %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Inflammation distribution at {{ time if time else 48 }} hours with interactive statistical visualizations and confidence interval markers.</p>
-        <div id="plot-dist-infl" style="width:100%; height:600px;"></div>
+        <p class="plot-description">Inflammation distribution at <span class="dist-time-label">{{ time if time else 48 }}</span> hours with interactive statistical visualizations and confidence interval markers.</p>
+        <div class="plot-with-slider">
+            <div id="plot-dist-infl" style="width:100%; height:600px;"></div>
+            <div class="dist-time-slider-container" data-endpoint="infl">
+                <div class="dist-slider-row">
+                    <span class="dist-slider-label">Time:</span>
+                    <input type="range" class="dist-time-slider slider" data-endpoint="infl" min="0" max="99" step="1" value="99">
+                    <span class="dist-time-value" data-endpoint="infl">{{ time if time else 48 }}</span>
+                    <span class="dist-slider-unit">h</span>
+                </div>
+            </div>
+        </div>
         {% endif %}
         {% endif %}
 
@@ -209,8 +225,18 @@
         {% endif %}
         {% if plot_dist_kf %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Kidney failure risk distribution at {{ time if time else 48 }} hours with interactive statistical visualization and confidence intervals.</p>
-        <div id="plot-dist-kf" style="width:100%; height:600px;"></div>
+        <p class="plot-description">Kidney failure risk distribution at <span class="dist-time-label">{{ time if time else 48 }}</span> hours with interactive statistical visualization and confidence intervals.</p>
+        <div class="plot-with-slider">
+            <div id="plot-dist-kf" style="width:100%; height:600px;"></div>
+            <div class="dist-time-slider-container" data-endpoint="kf">
+                <div class="dist-slider-row">
+                    <span class="dist-slider-label">Time:</span>
+                    <input type="range" class="dist-time-slider slider" data-endpoint="kf" min="0" max="99" step="1" value="99">
+                    <span class="dist-time-value" data-endpoint="kf">{{ time if time else 48 }}</span>
+                    <span class="dist-slider-unit">h</span>
+                </div>
+            </div>
+        </div>
         {% endif %}
         {% endif %}
 
@@ -268,6 +294,12 @@
 
         // Update hidden input value for form submission
         modelInput.value = newModel;
+
+        // Hide results from previous model
+        const resultsContainer = document.getElementById('results-container');
+        if (resultsContainer) {
+          resultsContainer.style.display = 'none';
+        }
 
         // Trigger change event to update UI
         const event = new Event('change');
@@ -369,11 +401,15 @@
         }
       }
 
+      // Track current model to detect switches
+      let currentModel = modelSelect.value || 'invitro';
+
       // Update UI for current model
       function updateModelUI() {
         const model = modelSelect.value;
         const doseConfig = config[model].dose;
         const timeConfig = config[model].time;
+        const modelChanged = (model !== currentModel);
 
         // Update units and labels
         doseUnitSpan.textContent = doseConfig.unit;
@@ -381,28 +417,34 @@
         doseMaxLabel.textContent = `${doseConfig.max} ${doseConfig.unit}`;
         timeMinLabel.textContent = `${timeConfig.min} h`;
         timeMaxLabel.textContent = `${timeConfig.max} h`;
-        
+
         // Update scale indicators
         doseScaleInfo.textContent = doseConfig.logScale ? 'Log scale' : 'Linear scale';
         timeScaleInfo.textContent = timeConfig.logScale ? 'Log scale' : 'Linear scale';
-        
+
         // Update range info
         const doseScaleText = doseConfig.logScale ? 'logarithmic scale' : 'linear scale';
         const timeScaleText = timeConfig.logScale ? 'logarithmic scale' : 'linear scale';
         doseRangeInfo.textContent = `Range: ${doseConfig.min} - ${doseConfig.max} ${doseConfig.unit} (${doseScaleText})`;
         timeRangeInfo.textContent = `Range: ${timeConfig.min} - ${timeConfig.max} ${timeConfig.unit} (${timeScaleText})`;
 
-        // Set default values only if inputs are empty or have default values
-        if (!doseInput.value || doseInput.value == doseConfig.default) {
+        // Reset to defaults when switching models, or if value is out of range
+        const currentDose = parseFloat(doseInput.value);
+        const currentTime = parseFloat(timeInput.value);
+
+        if (modelChanged || isNaN(currentDose) || currentDose < doseConfig.min || currentDose > doseConfig.max) {
           doseInput.value = doseConfig.default;
         }
-        if (!timeInput.value || timeInput.value == timeConfig.default) {
+        if (modelChanged || isNaN(currentTime) || currentTime < timeConfig.min || currentTime > timeConfig.max) {
           timeInput.value = timeConfig.default;
         }
-        
+
         // Always sync sliders with current input values
         syncSliderFromInput(doseInput, doseSlider, doseConfig);
         syncSliderFromInput(timeInput, timeSlider, timeConfig);
+
+        // Update tracked model
+        currentModel = model;
       }
 
       // Event listeners for dose
@@ -479,6 +521,16 @@
         syncSliderFromInput(doseInput, doseSlider, config[model].dose);
         syncSliderFromInput(timeInput, timeSlider, config[model].time);
       }, 100);
+
+      // Show loading overlay on form submit
+      const form = document.querySelector('form');
+      const loadingOverlay = document.getElementById('loading-overlay');
+
+      form.addEventListener('submit', function() {
+        if (loadingOverlay) {
+          loadingOverlay.style.display = 'flex';
+        }
+      });
     </script>
 
     <!-- Plotly rendering JavaScript -->
@@ -553,7 +605,7 @@
     {% endif %}
     </script>
 
-    <!-- Time Slider JavaScript for Issue #19 -->
+    <!-- Per-plot Time Sliders JavaScript -->
     {% if simulation_data %}
     <script>
     (function() {
@@ -563,15 +615,13 @@
         const numTimePoints = timePoints.length;
         const modelType = simulationData.model_type;
 
-        // Get DOM elements
-        const timeSlider = document.getElementById('distribution-time-slider');
-        const timeValueDisplay = document.getElementById('distribution-time-value');
-        const timeMinLabel = document.getElementById('dist-time-min-label');
-        const timeMaxLabel = document.getElementById('dist-time-max-label');
-
-        // Update labels
-        timeMinLabel.textContent = timePoints[0].toFixed(1) + ' h';
-        timeMaxLabel.textContent = timePoints[numTimePoints - 1].toFixed(1) + ' h';
+        // Endpoint configuration
+        const endpoints = {
+            dd: { label: 'DNA Damage', color: 'red' },
+            nec: { label: 'Necrosis', color: 'blue' },
+            infl: { label: 'Inflammation', color: 'green' },
+            kf: { label: 'Kidney Failure', color: 'purple' }
+        };
 
         // Statistical helper functions
         function calculatePercentile(arr, p) {
@@ -616,9 +666,13 @@
         }
 
         // Update distribution plot for a specific endpoint
-        function updateDistributionPlot(endpoint, timeIndex, plotId, label, color) {
+        function updateDistributionPlot(endpoint, timeIndex) {
             const data = simulationData.endpoints[endpoint];
             if (!data) return;
+
+            const config = endpoints[endpoint];
+            const plotId = 'plot-dist-' + endpoint;
+            const currentTime = timePoints[timeIndex];
 
             // Extract values at the selected time index
             const values = data.map(sim => sim[timeIndex]);
@@ -627,8 +681,6 @@
             const mean = calculateMean(values);
             const median = calculatePercentile(values, 50);
             const p2_5 = calculatePercentile(values, 2.5);
-            const p25 = calculatePercentile(values, 25);
-            const p75 = calculatePercentile(values, 75);
             const p97_5 = calculatePercentile(values, 97.5);
 
             // Generate KDE
@@ -642,7 +694,7 @@
                     type: 'histogram',
                     nbinsx: 30,
                     name: 'Distribution',
-                    marker: { color: color, opacity: 0.6 },
+                    marker: { color: config.color, opacity: 0.6 },
                     histnorm: 'probability density',
                     xaxis: 'x',
                     yaxis: 'y'
@@ -663,7 +715,7 @@
                     y: values,
                     type: 'box',
                     name: 'Statistics',
-                    marker: { color: color },
+                    marker: { color: config.color },
                     boxmean: 'sd',
                     orientation: 'v',
                     xaxis: 'x2',
@@ -684,7 +736,7 @@
                 },
                 annotations: [
                     {
-                        text: 'Distribution of ' + label,
+                        text: 'Distribution of ' + config.label + ' at ' + currentTime.toFixed(1) + ' h',
                         xref: 'paper',
                         yref: 'paper',
                         x: 0.5,
@@ -718,44 +770,51 @@
                 xaxis: { domain: [0, 1], anchor: 'y' },
                 yaxis: { domain: [0.4, 1], title: 'Density', anchor: 'x' },
                 xaxis2: { domain: [0, 1], anchor: 'y2', visible: false },
-                yaxis2: { domain: [0, 0.3], title: label + ' Value', anchor: 'x2' }
+                yaxis2: { domain: [0, 0.3], title: config.label + ' Value', anchor: 'x2' }
             };
 
             Plotly.react(plotId, traces, layout, plotConfig);
         }
 
-        // Update all distribution plots
-        function updateAllDistributions(timeIndex) {
-            const currentTime = timePoints[timeIndex];
-            timeValueDisplay.textContent = currentTime.toFixed(1);
+        // Get all sliders and value displays
+        const allSliders = document.querySelectorAll('.dist-time-slider');
+        const allValueDisplays = document.querySelectorAll('.dist-time-value');
 
-            // Update plot descriptions
-            document.querySelectorAll('.plot-description').forEach(desc => {
-                if (desc.textContent.includes('hours with interactive histogram') ||
-                    desc.textContent.includes('hours with histogram')) {
-                    desc.textContent = desc.textContent.replace(/at [\d.]+ hours/, 'at ' + currentTime.toFixed(1) + ' hours');
-                }
+        // Update all sliders and plots to a given time index
+        function updateAllToTimeIndex(timeIndex) {
+            const currentTime = timePoints[timeIndex];
+
+            // Update all sliders
+            allSliders.forEach(slider => {
+                slider.value = timeIndex;
             });
 
-            // Update each endpoint
-            updateDistributionPlot('dd', timeIndex, 'plot-dist-dd', 'DNA Damage', 'red');
-            updateDistributionPlot('nec', timeIndex, 'plot-dist-nec', 'Necrosis', 'blue');
+            // Update all value displays
+            allValueDisplays.forEach(display => {
+                display.textContent = currentTime.toFixed(1);
+            });
 
+            // Update all distribution plots
+            updateDistributionPlot('dd', timeIndex);
+            updateDistributionPlot('nec', timeIndex);
             if (modelType === 'invivo') {
-                updateDistributionPlot('infl', timeIndex, 'plot-dist-infl', 'Inflammation', 'green');
-                updateDistributionPlot('kf', timeIndex, 'plot-dist-kf', 'Kidney Failure', 'purple');
+                updateDistributionPlot('infl', timeIndex);
+                updateDistributionPlot('kf', timeIndex);
             }
         }
 
-        // Event listener for time slider
-        timeSlider.addEventListener('input', function() {
-            const timeIndex = parseInt(this.value);
-            updateAllDistributions(timeIndex);
-        });
+        // Initialize all per-plot sliders
+        allSliders.forEach(slider => {
+            // Set slider range
+            slider.max = numTimePoints - 1;
+            slider.value = numTimePoints - 1;
 
-        // Initialize slider to max value (last time point)
-        timeSlider.value = numTimePoints - 1;
-        timeSlider.max = numTimePoints - 1;
+            // Event listener - when any slider moves, update all
+            slider.addEventListener('input', function() {
+                const timeIndex = parseInt(this.value);
+                updateAllToTimeIndex(timeIndex);
+            });
+        });
 
     })();
     </script>

@@ -589,47 +589,103 @@ footer {
     }
 }
 
-/* Time Selector Section (Issue #19) */
-.time-selector-section {
-    margin: 25px 0;
-    padding: 20px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9f6fd 100%);
-    border-radius: 10px;
-    border: 2px solid #307BBF;
-    box-shadow: 0 2px 8px rgba(48, 123, 191, 0.15);
-}
-
-.time-selector-section h4 {
-    color: #307BBF;
-    margin-top: 0;
-    margin-bottom: 10px;
-    font-size: 18px;
-}
-
-.time-selector-description {
-    color: #666;
-    font-size: 14px;
-    margin-bottom: 15px;
-    font-style: italic;
-}
-
-.time-display {
-    text-align: center;
-    margin-top: 15px;
-    padding: 10px;
-    background-color: white;
-    border-radius: 6px;
-    font-size: 16px;
-    color: #29235C;
+/* Plot with integrated slider */
+.plot-with-slider {
     border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 20px 0;
+    overflow: hidden;
 }
 
-.time-display strong {
-    color: #E6007E;
+.plot-with-slider div[id^="plot-"] {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 10px 10px 0 10px;
 }
 
-#distribution-time-value {
-    font-size: 18px;
+/* Per-plot Time Slider (inside plot container) */
+.dist-time-slider-container {
+    margin: 0;
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9f6fd 100%);
+    border-top: 1px solid #ddd;
+}
+
+.dist-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dist-slider-label {
     font-weight: bold;
     color: #307BBF;
+    font-size: 14px;
+    min-width: 40px;
+}
+
+.dist-time-slider-container .slider {
+    flex: 1;
+    margin: 0;
+}
+
+.dist-time-value {
+    font-weight: bold;
+    color: #E6007E;
+    font-size: 16px;
+    min-width: 50px;
+    text-align: right;
+}
+
+.dist-slider-unit {
+    color: #666;
+    font-size: 14px;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-content {
+    background-color: white;
+    padding: 40px 60px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.loading-content p {
+    margin: 20px 0 0 0;
+    font-size: 18px;
+    color: #29235C;
+    font-weight: bold;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #e0e0e0;
+    border-top: 5px solid #E6007E;
+    border-radius: 50%;
+    margin: 0 auto;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
