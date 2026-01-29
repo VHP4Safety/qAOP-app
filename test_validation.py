@@ -36,14 +36,14 @@ class TestDoseValidation:
         assert validate_dose(10.0, "invitro") == 10.0
         assert validate_dose("50.5", "invitro") == 50.5
         assert validate_dose(0.001, "invitro") == 0.001  # Minimum
-        assert validate_dose(1000.0, "invitro") == 1000.0  # Maximum
+        assert validate_dose(150.0, "invitro") == 150.0  # Maximum
     
     def test_valid_invivo_doses(self):
         """Test valid invivo doses."""
         assert validate_dose(5.0, "invivo") == 5.0
         assert validate_dose("2.5", "invivo") == 2.5
         assert validate_dose(0.1, "invivo") == 0.1  # Minimum
-        assert validate_dose(50.0, "invivo") == 50.0  # Maximum
+        assert validate_dose(10.0, "invivo") == 10.0  # Maximum
     
     def test_invalid_dose_types(self):
         """Test invalid dose types."""

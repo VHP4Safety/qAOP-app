@@ -110,35 +110,7 @@ button:hover {
     background-color: #005A6C;
 }
 
-footer {
-    background-color: #307BBF;
-    padding: 10px;
-    text-align: center;
-    color: white;
-    position: relative;
-    width: 100%;
-    bottom: 0;
-}
-
-footer a {
-    color: white;
-    text-decoration: none;
-}
-
-footer a:hover {
-    text-decoration: underline;
-}
-
-footer img {
-    width: 40px; 
-    height: auto;
-    vertical-align: middle;  
-}
-
-.footer-content {
-    display: inline-flex;
-    align-items: center;
-}
+/* Footer styles moved to bottom of file */
 
 .table-container {
     max-height: 400px; 
@@ -511,25 +483,153 @@ div[id^="plot-"] {
     }
 }
 
-.footer-content {
-  text-align: center;
-  margin: 24px 0;
-  font-size: 0.95rem;
+/* Footer Layout */
+footer {
+    background-color: #307BBF;
+    padding: 20px 30px;
+    text-align: center;
+    color: white;
+    position: relative;
+    width: 100%;
+    bottom: 0;
+}
+
+.footer-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.footer-branding {
+    display: flex;
+    align-items: center;
+}
+
+.footer-logo {
+    height: 50px;
+    width: auto;
+    opacity: 0.95;
+    transition: opacity 0.3s ease;
+}
+
+.footer-logo:hover {
+    opacity: 1;
+}
+
+.footer-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
 }
 
 .footer-links a {
-  text-decoration: none;
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
 }
 
 .footer-links a:hover {
-  text-decoration: underline;
+    background-color: rgba(255, 255, 255, 0.15);
+    text-decoration: none;
 }
 
 .footer-sep {
-  margin: 0 8px;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0 4px;
+}
+
+.footer-divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+    margin: 15px auto;
+    max-width: 600px;
+}
+
+.footer-bottom {
+    margin-top: 10px;
 }
 
 .footer-cite {
-  opacity: 0.85;
-  font-size: 0.9rem;
+    opacity: 0.9;
+    font-size: 0.9rem;
+    margin: 0 0 8px 0;
+}
+
+.footer-legal {
+    opacity: 0.75;
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+.footer-legal a {
+    color: white;
+    text-decoration: none;
+}
+
+.footer-legal a:hover {
+    text-decoration: underline;
+}
+
+/* Mobile responsiveness for footer */
+@media (max-width: 600px) {
+    .footer-top {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .footer-links {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+/* Time Selector Section (Issue #19) */
+.time-selector-section {
+    margin: 25px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9f6fd 100%);
+    border-radius: 10px;
+    border: 2px solid #307BBF;
+    box-shadow: 0 2px 8px rgba(48, 123, 191, 0.15);
+}
+
+.time-selector-section h4 {
+    color: #307BBF;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.time-selector-description {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+.time-display {
+    text-align: center;
+    margin-top: 15px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 6px;
+    font-size: 16px;
+    color: #29235C;
+    border: 1px solid #ddd;
+}
+
+.time-display strong {
+    color: #E6007E;
+}
+
+#distribution-time-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #307BBF;
 }

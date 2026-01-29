@@ -955,6 +955,21 @@ def index():
     # Get parameter ranges for the frontend
     param_ranges = get_parameter_ranges()
 
+    # Prepare raw simulation data for client-side time slider (Issue #19)
+    simulation_data = None
+    if result_dd:  # Only prepare if simulation was run
+        simulation_data = {
+            'time_points': t_vals.tolist(),
+            'model_type': model_type,
+            'endpoints': {
+                'dd': dd_vals.tolist(),
+                'nec': necrosis_vals.tolist()
+            }
+        }
+        if model_type == 'invivo':
+            simulation_data['endpoints']['infl'] = inflammation_vals.tolist()
+            simulation_data['endpoints']['kf'] = kf_vals.tolist()
+
     # Store results for report generation (server-side to avoid cookie size limit)
     if result_dd:  # Only store if simulation was run
         session_id = str(uuid.uuid4())
@@ -999,7 +1014,8 @@ def index():
     plot_dist_dd=plot_dist_dd, plot_time_dd=plot_time_dd,
     plot_dist_nec=plot_dist_nec, plot_time_nec=plot_time_nec,
     result_infl=result_infl, plot_dist_infl=plot_dist_infl, plot_time_infl=plot_time_infl,
-    result_kf=result_kf, plot_dist_kf=plot_dist_kf, plot_time_kf=plot_time_kf
+    result_kf=result_kf, plot_dist_kf=plot_dist_kf, plot_time_kf=plot_time_kf,
+    simulation_data=simulation_data
 )
 
 

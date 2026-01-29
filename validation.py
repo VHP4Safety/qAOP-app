@@ -12,7 +12,7 @@ PARAMETER_RANGES = {
     "invitro": {
         "dose": {
             "min": 0.001,      # μM - minimum detectable concentration
-            "max": 1000.0,     # μM - upper limit for cell viability
+            "max": 150.0,      # μM - upper limit for cell viability
             "unit": "μM",
             "description": "Cisplatin concentration in cell culture medium"
         },
@@ -26,7 +26,7 @@ PARAMETER_RANGES = {
     "invivo": {
         "dose": {
             "min": 0.1,        # mg/kg - minimum therapeutic dose
-            "max": 50.0,       # mg/kg - maximum tolerable dose
+            "max": 10.0,       # mg/kg - maximum tolerable dose
             "unit": "mg/kg",
             "description": "Cisplatin dose per body weight"
         },

@@ -130,9 +130,32 @@
     <div class="container">
         <div style="margin: 20px 0; text-align: center;">
             <a href="{{ url_for('download_report') }}" class="download-btn" style="display: inline-block; padding: 12px 24px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">
-                📄 Download Report
+                Download Report
             </a>
         </div>
+
+        <!-- Time Selector for Distribution Plots (Issue #19) -->
+        <div class="time-selector-section">
+            <h4>Select Time Point for Distributions</h4>
+            <p class="time-selector-description">Use the slider below to explore distributions at different time points without re-running the simulation.</p>
+            <div class="slider-container">
+                <input type="range"
+                       id="distribution-time-slider"
+                       class="slider"
+                       min="0" max="99"
+                       step="1"
+                       value="99">
+                <div class="slider-labels">
+                    <span id="dist-time-min-label">0 h</span>
+                    <span class="slider-scale-info">Linear scale</span>
+                    <span id="dist-time-max-label">{{ time }} h</span>
+                </div>
+            </div>
+            <div class="time-display">
+                <strong>Selected Time:</strong> <span id="distribution-time-value">{{ time }}</span> hours
+            </div>
+        </div>
+
         <h3>DNA Damage</h3>
         <p>{{ result_dd }}</p>
         {% if plot_time_dd %}
@@ -195,21 +218,39 @@
     {% endif %}
 
     <footer>
-      <p class="footer-content">
-        <span class="footer-links">
+      <div class="footer-top">
+        <div class="footer-branding">
+          <a href="https://vhp4safety.nl" target="_blank" rel="noopener noreferrer">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety Logo" class="footer-logo">
+          </a>
+        </div>
+        <div class="footer-links">
           <a href="https://doi.org/10.1093/toxsci/kfaf177" target="_blank" rel="noopener noreferrer">
-            Paper (Toxicological Sciences, 2026)
+            Paper
           </a>
           <span class="footer-sep">•</span>
           <a href="https://github.com/VHP4Safety/qAOP-app" target="_blank" rel="noopener noreferrer">
-            GitHub repository
+            GitHub
           </a>
-        </span>
-        <br>
-        <span class="footer-cite">
+          <span class="footer-sep">•</span>
+          <a href="/api/models" target="_blank">
+            API Docs
+          </a>
+        </div>
+      </div>
+      <div class="footer-divider"></div>
+      <div class="footer-bottom">
+        <p class="footer-cite">
           Di Tillio <em>et&nbsp;al.</em> — Quantitative AOP Modeling of Cisplatin-Induced Nephrotoxicity
-        </span>
-      </p>
+        </p>
+        <p class="footer-legal">
+          v1.0.0
+          <span class="footer-sep">•</span>
+          <a href="https://github.com/VHP4Safety/qAOP-app/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+          <span class="footer-sep">•</span>
+          © 2026 VHP4Safety
+        </p>
+      </div>
     </footer>
     <script>
       // Tab switching functionality
@@ -511,6 +552,214 @@
     } catch (e) { console.error('Error rendering Kidney Failure distribution:', e); }
     {% endif %}
     </script>
+
+    <!-- Time Slider JavaScript for Issue #19 -->
+    {% if simulation_data %}
+    <script>
+    (function() {
+        // Raw simulation data from backend
+        const simulationData = {{ simulation_data | tojson | safe }};
+        const timePoints = simulationData.time_points;
+        const numTimePoints = timePoints.length;
+        const modelType = simulationData.model_type;
+
+        // Get DOM elements
+        const timeSlider = document.getElementById('distribution-time-slider');
+        const timeValueDisplay = document.getElementById('distribution-time-value');
+        const timeMinLabel = document.getElementById('dist-time-min-label');
+        const timeMaxLabel = document.getElementById('dist-time-max-label');
+
+        // Update labels
+        timeMinLabel.textContent = timePoints[0].toFixed(1) + ' h';
+        timeMaxLabel.textContent = timePoints[numTimePoints - 1].toFixed(1) + ' h';
+
+        // Statistical helper functions
+        function calculatePercentile(arr, p) {
+            const sorted = [...arr].sort((a, b) => a - b);
+            const index = (p / 100) * (sorted.length - 1);
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+            if (lower === upper) return sorted[lower];
+            return sorted[lower] * (upper - index) + sorted[upper] * (index - lower);
+        }
+
+        function calculateMean(arr) {
+            return arr.reduce((a, b) => a + b, 0) / arr.length;
+        }
+
+        function calculateStd(arr) {
+            const mean = calculateMean(arr);
+            const sqDiffs = arr.map(v => Math.pow(v - mean, 2));
+            return Math.sqrt(sqDiffs.reduce((a, b) => a + b, 0) / arr.length);
+        }
+
+        // Generate KDE points
+        function generateKDE(values, numPoints = 300) {
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+            const bandwidth = 1.06 * calculateStd(values) * Math.pow(values.length, -0.2);
+
+            const xVals = [];
+            const yVals = [];
+            for (let i = 0; i < numPoints; i++) {
+                const x = min - range * 0.1 + (range * 1.2 * i / (numPoints - 1));
+                xVals.push(x);
+                let density = 0;
+                for (const v of values) {
+                    density += Math.exp(-0.5 * Math.pow((x - v) / bandwidth, 2));
+                }
+                density /= (values.length * bandwidth * Math.sqrt(2 * Math.PI));
+                yVals.push(density);
+            }
+            return { x: xVals, y: yVals };
+        }
+
+        // Update distribution plot for a specific endpoint
+        function updateDistributionPlot(endpoint, timeIndex, plotId, label, color) {
+            const data = simulationData.endpoints[endpoint];
+            if (!data) return;
+
+            // Extract values at the selected time index
+            const values = data.map(sim => sim[timeIndex]);
+
+            // Calculate statistics
+            const mean = calculateMean(values);
+            const median = calculatePercentile(values, 50);
+            const p2_5 = calculatePercentile(values, 2.5);
+            const p25 = calculatePercentile(values, 25);
+            const p75 = calculatePercentile(values, 75);
+            const p97_5 = calculatePercentile(values, 97.5);
+
+            // Generate KDE
+            const kde = generateKDE(values);
+
+            // Create new plot data
+            const traces = [
+                // Histogram
+                {
+                    x: values,
+                    type: 'histogram',
+                    nbinsx: 30,
+                    name: 'Distribution',
+                    marker: { color: color, opacity: 0.6 },
+                    histnorm: 'probability density',
+                    xaxis: 'x',
+                    yaxis: 'y'
+                },
+                // KDE curve
+                {
+                    x: kde.x,
+                    y: kde.y,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'KDE',
+                    line: { color: 'black', width: 2 },
+                    xaxis: 'x',
+                    yaxis: 'y'
+                },
+                // Box plot
+                {
+                    y: values,
+                    type: 'box',
+                    name: 'Statistics',
+                    marker: { color: color },
+                    boxmean: 'sd',
+                    orientation: 'v',
+                    xaxis: 'x2',
+                    yaxis: 'y2'
+                }
+            ];
+
+            const layout = {
+                showlegend: true,
+                hovermode: 'closest',
+                template: 'plotly_white',
+                height: 600,
+                grid: {
+                    rows: 2,
+                    columns: 1,
+                    roworder: 'top to bottom',
+                    pattern: 'independent'
+                },
+                annotations: [
+                    {
+                        text: 'Distribution of ' + label,
+                        xref: 'paper',
+                        yref: 'paper',
+                        x: 0.5,
+                        y: 1.0,
+                        xanchor: 'center',
+                        yanchor: 'bottom',
+                        showarrow: false,
+                        font: { size: 16 }
+                    },
+                    {
+                        text: 'Box Plot',
+                        xref: 'paper',
+                        yref: 'paper',
+                        x: 0.5,
+                        y: 0.35,
+                        xanchor: 'center',
+                        yanchor: 'bottom',
+                        showarrow: false,
+                        font: { size: 14 }
+                    }
+                ],
+                shapes: [
+                    // Mean line
+                    { type: 'line', x0: mean, x1: mean, y0: 0, y1: 1, yref: 'paper', line: { color: 'blue', dash: 'dash' }, xaxis: 'x', yaxis: 'y' },
+                    // Median line
+                    { type: 'line', x0: median, x1: median, y0: 0, y1: 1, yref: 'paper', line: { color: 'green', dash: 'dot' }, xaxis: 'x', yaxis: 'y' },
+                    // 95% CI lines
+                    { type: 'line', x0: p2_5, x1: p2_5, y0: 0, y1: 1, yref: 'paper', line: { color: 'red', dash: 'dash', width: 1 }, xaxis: 'x', yaxis: 'y' },
+                    { type: 'line', x0: p97_5, x1: p97_5, y0: 0, y1: 1, yref: 'paper', line: { color: 'red', dash: 'dash', width: 1 }, xaxis: 'x', yaxis: 'y' }
+                ],
+                xaxis: { domain: [0, 1], anchor: 'y' },
+                yaxis: { domain: [0.4, 1], title: 'Density', anchor: 'x' },
+                xaxis2: { domain: [0, 1], anchor: 'y2', visible: false },
+                yaxis2: { domain: [0, 0.3], title: label + ' Value', anchor: 'x2' }
+            };
+
+            Plotly.react(plotId, traces, layout, plotConfig);
+        }
+
+        // Update all distribution plots
+        function updateAllDistributions(timeIndex) {
+            const currentTime = timePoints[timeIndex];
+            timeValueDisplay.textContent = currentTime.toFixed(1);
+
+            // Update plot descriptions
+            document.querySelectorAll('.plot-description').forEach(desc => {
+                if (desc.textContent.includes('hours with interactive histogram') ||
+                    desc.textContent.includes('hours with histogram')) {
+                    desc.textContent = desc.textContent.replace(/at [\d.]+ hours/, 'at ' + currentTime.toFixed(1) + ' hours');
+                }
+            });
+
+            // Update each endpoint
+            updateDistributionPlot('dd', timeIndex, 'plot-dist-dd', 'DNA Damage', 'red');
+            updateDistributionPlot('nec', timeIndex, 'plot-dist-nec', 'Necrosis', 'blue');
+
+            if (modelType === 'invivo') {
+                updateDistributionPlot('infl', timeIndex, 'plot-dist-infl', 'Inflammation', 'green');
+                updateDistributionPlot('kf', timeIndex, 'plot-dist-kf', 'Kidney Failure', 'purple');
+            }
+        }
+
+        // Event listener for time slider
+        timeSlider.addEventListener('input', function() {
+            const timeIndex = parseInt(this.value);
+            updateAllDistributions(timeIndex);
+        });
+
+        // Initialize slider to max value (last time point)
+        timeSlider.value = numTimePoints - 1;
+        timeSlider.max = numTimePoints - 1;
+
+    })();
+    </script>
+    {% endif %}
 
 </body>
 </html>
