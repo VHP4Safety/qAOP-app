@@ -157,7 +157,7 @@ def invivo_model(y, t, dose, params):
 
 
 # === Fixed model parameters (from experimental setup or calibration) ===
-fixed_params_invitro = [2e6, 2005, 1.24e4, 4.518e1, 2.304e4, 2.232e4, 1e12, 2e12, 3.024e4]
+fixed_params_invitro = [2e6, 2005, 1.24e4, 4.518e1, 2.304e3, 2.232e4, 1e12, 2e12, 3.024e4]
 fixed_params_invivo = [2.13e-1, 2.19, 6.13e-2, 4.73e-4, 4.7e-3, 4.9e-3, 3.99, 0.005]
 
 # === Define initial conditions based on input dose ===
