@@ -242,7 +242,7 @@ def color_to_rgb(color):
     return color_map.get(color, '0, 0, 0')
 
 # === Plotly plotting functions ===
-def create_plotly_distribution(values, label, color, time_index, endpoint_stats):
+def create_plotly_distribution(values, label, color, time_index, endpoint_stats, y_max=None):
     """Create interactive distribution plot with Plotly"""
     final_values = values[:, time_index]
 
@@ -315,10 +315,14 @@ def create_plotly_distribution(values, label, color, time_index, endpoint_stats)
     fig.update_yaxes(title_text=f'{label} Value', row=2, col=1)
     fig.update_yaxes(title_text='Density', row=1, col=1)
 
+    if y_max is not None:
+        fig.update_xaxes(range=[0, y_max], row=1, col=1)
+        fig.update_yaxes(range=[0, y_max], row=2, col=1)
+
     # Return JSON for frontend rendering
     return fig.to_json()
 
-def create_plotly_timeseries(values, time_points, label, color, dose, unit, endpoint_stats):
+def create_plotly_timeseries(values, time_points, label, color, dose, unit, endpoint_stats, y_max=None):
     """Create interactive time series plot with confidence bands"""
     fig = go.Figure()
 
@@ -419,6 +423,9 @@ def create_plotly_timeseries(values, time_points, label, color, dose, unit, endp
         height=500,
         showlegend=True
     )
+
+    if y_max is not None:
+        fig.update_yaxes(range=[0, y_max])
 
     # Return JSON for frontend rendering
     return fig.to_json()
@@ -889,8 +896,8 @@ def index():
             }
         }
 
-        plot_dist_nec = create_plotly_distribution(necrosis_vals, "Necrosis", "blue", idx, nec_stats)
-        plot_time_nec = create_plotly_timeseries(necrosis_vals, t_vals, "Necrosis", "blue", dose, unit, nec_stats)
+        plot_dist_nec = create_plotly_distribution(necrosis_vals, "Necrosis", "blue", idx, nec_stats, y_max=1.0)
+        plot_time_nec = create_plotly_timeseries(necrosis_vals, t_vals, "Necrosis", "blue", dose, unit, nec_stats, y_max=1.0)
 
         # If in vivo, also plot Inflammation and Kidney Failure
         if model_type == "invivo":
