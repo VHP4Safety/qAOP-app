@@ -362,6 +362,25 @@ docker run -p 8080:8080 -e FLASK_PORT=8080 -e FLASK_ENV=production qaop-predicto
 5. Push to branch (`git push origin feature/amazing-feature`)
 6. Open a Pull Request
 
+## Citation
+
+If you use this application or its underlying models, please cite:
+
+> Di Tillio F, Wijaya LS, Kunnen SJ, Eugenio CJ, Buzzanca G, Bruns IB, Martens M, Kramer NI, Kers J, Callegaro G, van de Water B, Beltman JB. Quantitative adverse outcome pathway modeling of cisplatin-induced nephrotoxicity: developing in vitro and in vivo models for predictive extrapolation. *Toxicological Sciences*. 2026;209(2). doi:[10.1093/toxsci/kfaf177](https://doi.org/10.1093/toxsci/kfaf177). PMID: [41514178](https://pubmed.ncbi.nlm.nih.gov/41514178/).
+
+```bibtex
+@article{DiTillio2026qAOP,
+  author  = {Di Tillio, Filippo and Wijaya, Lukas S and Kunnen, Steven J and Eugenio, Carl Joshua and Buzzanca, Giorgio and Bruns, Imke B and Martens, Marvin and Kramer, Nynke I and Kers, Jesper and Callegaro, Giulia and van de Water, Bob and Beltman, Joost B},
+  title   = {Quantitative adverse outcome pathway modeling of cisplatin-induced nephrotoxicity: developing in vitro and in vivo models for predictive extrapolation},
+  journal = {Toxicological Sciences},
+  year    = {2026},
+  volume  = {209},
+  number  = {2},
+  doi     = {10.1093/toxsci/kfaf177},
+  pmid    = {41514178}
+}
+```
+
 ## License
 
 This project is part of the VHP4Safety consortium. Please refer to the project license for usage terms.
