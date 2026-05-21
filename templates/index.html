@@ -10,12 +10,18 @@
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
-    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety Logo" class="center">
-
     <header>
         <div class="header-content">
-            <img src="{{ url_for('static', filename='img/qAOPapp_logo_header.png') }}" alt="qAOP Logo" class="header-logo">
-            <h1>qAOP Prediction</h1>
+            <div class="header-brand">
+                <img src="{{ url_for('static', filename='img/qAOPapp_logo_header.png') }}" alt="qAOP Logo" class="header-logo">
+                <div class="header-titles">
+                    <h1>qAOP Prediction</h1>
+                    <p class="header-tagline">Quantitative Adverse Outcome Pathway modelling</p>
+                </div>
+            </div>
+            <a href="https://vhp4safety.nl" target="_blank" rel="noopener noreferrer" class="header-platform">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="VHP4Safety" class="header-platform-logo">
+            </a>
         </div>
     </header>
 

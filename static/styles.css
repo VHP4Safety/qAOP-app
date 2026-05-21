@@ -8,36 +8,81 @@ body {
 
 header {
     background-color: #307BBF;
-    padding: 20px;
-    text-align: center;
+    padding: 18px 0;
     color: white;
 }
 
 .header-content {
+    max-width: 840px;
+    margin: 0 auto;
+    padding: 0 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 15px;
+    gap: 56px;
+    flex-wrap: wrap;
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .header-logo {
-    width: 100px;
-    height: 100px;
+    width: 58px;
+    height: 58px;
     border-radius: 12px;
+    flex-shrink: 0;
 }
 
-.subheader {
-    background-color: #ff0000;
-    padding: 20px;
-    text-align: center;
-    color: white;
+.header-titles {
+    text-align: left;
 }
 
-.center {
+.header-content h1 {
+    margin: 0;
+    font-size: 1.7rem;
+    line-height: 1.2;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.header-tagline {
+    margin: 3px 0 0 0;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.header-platform {
+    display: flex;
+    align-items: center;
+    background-color: #ffffff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    transition: box-shadow 0.3s ease;
+}
+
+.header-platform:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.header-platform-logo {
+    height: 38px;
+    width: auto;
     display: block;
-    margin-left: auto;
-    margin-right: auto;
-    width: 500px;
+}
+
+@media (max-width: 640px) {
+    .header-content {
+        justify-content: center;
+        gap: 14px;
+    }
+    .header-content h1 {
+        font-size: 1.4rem;
+    }
 }
 
 .container {
@@ -506,17 +551,20 @@ footer {
 .footer-branding {
     display: flex;
     align-items: center;
+    background-color: #ffffff;
+    padding: 7px 12px;
+    border-radius: 8px;
+    transition: box-shadow 0.3s ease;
+}
+
+.footer-branding:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .footer-logo {
-    height: 50px;
+    height: 36px;
     width: auto;
-    opacity: 0.95;
-    transition: opacity 0.3s ease;
-}
-
-.footer-logo:hover {
-    opacity: 1;
+    display: block;
 }
 
 .footer-links {
@@ -556,8 +604,8 @@ footer {
 }
 
 .footer-cite {
-    opacity: 0.9;
-    font-size: 1.3rem;
+    opacity: 1;
+    font-size: 1.15rem;
     margin: 0 0 8px 0;
 }
 
