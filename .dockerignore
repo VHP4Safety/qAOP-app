@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI / local tooling config
+.github
+.claude
+CLAUDE.md
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Virtual environments
+venv/
+venvqAOPapp/
+env/
+ENV/
+.venv/
+
+# Tests
+test_*.py
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets / environment (.env.example is kept as a template)
+.env
+.env.local
+.env.*.local
+
+# Temp / logs
+.tmp/
+tmp/
+temp/
+*.tmp
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Docker
+Dockerfile
+.dockerignore
