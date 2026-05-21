@@ -36,23 +36,12 @@ header {
     flex-shrink: 0;
 }
 
-.header-titles {
-    text-align: left;
-}
-
 .header-content h1 {
     margin: 0;
     font-size: 1.7rem;
     line-height: 1.2;
     color: #ffffff;
     font-weight: 700;
-}
-
-.header-tagline {
-    margin: 3px 0 0 0;
-    font-size: 0.85rem;
-    font-weight: 400;
-    color: rgba(255, 255, 255, 0.85);
 }
 
 .header-platform {
