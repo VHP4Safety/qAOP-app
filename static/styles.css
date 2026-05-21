@@ -30,8 +30,8 @@ header {
 }
 
 .header-logo {
-    width: 58px;
-    height: 58px;
+    width: 52px;
+    height: 52px;
     border-radius: 12px;
     flex-shrink: 0;
 }
@@ -59,7 +59,7 @@ header {
     display: flex;
     align-items: center;
     background-color: #ffffff;
-    padding: 8px 14px;
+    padding: 7px 12px;
     border-radius: 8px;
     flex-shrink: 0;
     transition: box-shadow 0.3s ease;
@@ -70,7 +70,7 @@ header {
 }
 
 .header-platform-logo {
-    height: 38px;
+    height: 36px;
     width: auto;
     display: block;
 }
@@ -534,9 +534,6 @@ footer {
     padding: 20px 30px;
     text-align: center;
     color: white;
-    position: relative;
-    width: 100%;
-    bottom: 0;
 }
 
 .footer-top {
