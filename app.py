@@ -869,7 +869,15 @@ def index():
         # Necrosis
         mean_nec = necrosis_vals[:, idx].mean()
         std_nec = necrosis_vals[:, idx].std()
-        result_nec = f"Predicted fraction of necrotic cells at {time_param:.1f} h: Mean = {mean_nec:.4f}, Std = {std_nec:.4f}"
+        if model_type == "invivo":
+            result_nec = (
+                f"Predicted necrosis level at {time_param:.1f} h: "
+                f"Mean = {mean_nec:.4f}, Std = {std_nec:.4f} "
+                f"(0.0–0.25: minimal; 0.25–0.5: mild; "
+                f"0.5–0.75: moderate; 0.75–1.0: marked)"
+            )
+        else:
+            result_nec = f"Predicted fraction of necrotic cells at {time_param:.1f} h: Mean = {mean_nec:.4f}, Std = {std_nec:.4f}"
 
         # Prepare endpoint stats for Plotly
         nec_stats = {
@@ -924,7 +932,12 @@ def index():
 
             mean_kf = kf_vals[:, idx].mean()
             std_kf = kf_vals[:, idx].std()
-            result_kf = f"Predicted Kidney Failure at {time_param:.1f} h: Mean = {mean_kf:.2f}, Std = {std_kf:.2f}"
+            result_kf = (
+                f"Predicted kidney failure level at {time_param:.1f} h: "
+                f"Mean = {mean_kf:.2f}, Std = {std_kf:.2f} "
+                f"(0.0–0.25: minimal; 0.25–0.5: mild; "
+                f"0.5–0.75: moderate; 0.75–1.0: marked)"
+            )
 
             # Prepare endpoint stats for Plotly
             kf_stats = {
