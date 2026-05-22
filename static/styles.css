@@ -30,9 +30,9 @@ header {
 }
 
 .header-logo {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
+    width: 104px;
+    height: 104px;
+    border-radius: 18px;
     flex-shrink: 0;
 }
 
@@ -59,7 +59,7 @@ header {
 }
 
 .header-platform-logo {
-    height: 36px;
+    height: 72px;
     width: auto;
     display: block;
 }
