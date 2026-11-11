@@ -54,7 +54,9 @@ config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
     'testing': TestingConfig,
-    'default': DevelopmentConfig
+    # Debug only when asked for (FLASK_ENV=development): the Werkzeug debugger
+    # gives anyone who reaches it a Python console.
+    'default': ProductionConfig
 }
 
 def get_config():

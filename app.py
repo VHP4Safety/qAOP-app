@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, jsonify, session, send_file
 from datetime import datetime
 import os
+import secrets
 import uuid
 import numpy as np
 from scipy.integrate import odeint
@@ -24,7 +25,9 @@ from validation import validate_prediction_request, get_parameter_ranges, Valida
 config = get_config()
 app = Flask(__name__)
 app.config.from_object(config)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+# Without SECRET_KEY a random key per start: the session only carries a report id,
+# and reports live in process memory, so they don't outlive a restart anyway.
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
 # === Initialize logging ===
 setup_logging()
