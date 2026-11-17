@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, jsonify, session, send_file
 from datetime import datetime
 import os
+import yaml
 import secrets
 import uuid
 import numpy as np
@@ -18,8 +19,16 @@ import logging
 from functools import wraps
 from config import get_config
 from logger import setup_logging, log_request, log_simulation_start, log_simulation_complete, log_error, log_performance_metric
+import validation
 from validation import validate_prediction_request, get_parameter_ranges, ValidationError
 from simulation_stats import summarize_all
+import calibration
+from api_v1 import init_api_v1
+
+# Version reported by /api/health and every /api/v1 response. This is the
+# APPLICATION version and says nothing about the model calibration, whose
+# provenance lives in calibration.SOURCE.
+SERVICE_VERSION = "1.1.0"
 
 # === Initialize the Flask app with configuration ===
 config = get_config()
@@ -472,6 +481,45 @@ def create_plotly_dose_response(dose_data, endpoint_name, model_type):
 
 # === API Routes ===
 
+def health_probe():
+    """Gather health facts, shared by /api/health and /api/v1/health.
+
+    Returns a dict with ``status``, ``checks``, ``configuration`` and
+    ``models``. Raising is left to the caller to handle.
+    """
+    data_status = {
+        "invitro_params": len(draws_invitro_df) > 0,
+        "invivo_params": len(draws_invivo_df) > 0,
+        "pk_params": len(pk_pars) > 0
+    }
+
+    try:
+        test_params_invitro = sample_random_iteration("invitro")
+        test_params_invivo = sample_random_iteration("invivo")
+        model_status = {
+            "invitro_sampling": len(test_params_invitro) == 8,
+            "invivo_sampling": len(test_params_invivo) == 12
+        }
+    except Exception as e:
+        logger.warning(f"Model health check failed: {str(e)}")
+        model_status = {
+            "invitro_sampling": False,
+            "invivo_sampling": False
+        }
+
+    overall_healthy = all(data_status.values()) and all(model_status.values())
+    return {
+        "status": "healthy" if overall_healthy else "degraded",
+        "models": ["invitro", "invivo"],
+        "checks": {"data": data_status, "models": model_status},
+        "configuration": {
+            "simulation_count": config.SIMULATION_COUNT,
+            "time_points": config.TIME_POINTS,
+            "debug": config.DEBUG
+        }
+    }
+
+
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint for API monitoring."""
@@ -533,6 +581,59 @@ def health_check():
             "error": str(e)
         }), 503
 
+def run_monte_carlo(model_type, dose, time_param, simulation_count):
+    """Run the Monte Carlo ensemble and summarise it.
+
+    The simulation body of /api/predict, lifted out unchanged so that the
+    versioned API in api_v1.py can reach it through dependency injection
+    without importing numpy, scipy or the ODE models itself.
+
+    Individual iterations are allowed to fail and are skipped; the request only
+    fails if the very first one does, which is the pre-existing behaviour.
+
+    Returns a dict of plain Python values: ``endpoints`` (ready for jsonify),
+    ``successful_simulations`` (how many iterations actually contributed, which
+    can be fewer than requested) and ``dose_unit``.
+    """
+    t_vals = np.linspace(0, time_param, config.TIME_POINTS)
+    unit = "μM" if model_type == "invitro" else "mg/kg"
+
+    dd_vals, necrosis_vals = [], []
+    inflammation_vals, kf_vals = [], []
+
+    for i in range(simulation_count):
+        try:
+            params = sample_random_iteration(model_type)
+            if model_type == "invitro":
+                sol, _ = run_invitro_model(dose, time_param, params)
+                dd_vals.append(sol[:, -2])      # DNA Damage
+                necrosis_vals.append(sol[:, -1])# Necrosis
+            elif model_type == "invivo":
+                sol, _ = run_invivo_model(dose, time_param, params)
+                dd_vals.append(sol[:, 3])       # DNA Damage (DD)
+                necrosis_vals.append(sol[:, 4]) # Cell Death (CD)
+                inflammation_vals.append(sol[:, 5])  # Inflammation (INF)
+                kf_vals.append(sol[:, 6])            # Kidney Failure (KF)
+        except Exception as e:
+            logger.warning(f"Simulation {i+1}/{simulation_count} failed: {str(e)}")
+            if len(dd_vals) == 0:  # If no successful simulations yet, re-raise
+                raise
+
+    series_by_endpoint = {"dna_damage": np.array(dd_vals),
+                          "necrosis": np.array(necrosis_vals)}
+    if model_type == "invivo":
+        series_by_endpoint["inflammation"] = np.array(inflammation_vals)
+        series_by_endpoint["kidney_failure"] = np.array(kf_vals)
+
+    idx = np.argmin(np.abs(t_vals - time_param))
+
+    return {
+        "endpoints": summarize_all(series_by_endpoint, t_vals, idx),
+        "successful_simulations": len(dd_vals),
+        "dose_unit": unit,
+    }
+
+
 @app.route("/api/predict", methods=["POST"])
 def predict():
     """
@@ -570,50 +671,16 @@ def predict():
         log_simulation_start(model_type, dose, time_param, simulation_count)
         simulation_start = time_module.time()
         
-        t_vals = np.linspace(0, time_param, config.TIME_POINTS)
-        unit = "μM" if model_type == "invitro" else "mg/kg"
-        
-        dd_vals, necrosis_vals = [], []
-        inflammation_vals, kf_vals = [], []
-        
-        for i in range(simulation_count):
-            try:
-                params = sample_random_iteration(model_type)
-                if model_type == "invitro":
-                    sol, _ = run_invitro_model(dose, time_param, params)
-                    dd_vals.append(sol[:, -2])      # DNA Damage
-                    necrosis_vals.append(sol[:, -1])# Necrosis
-                elif model_type == "invivo":
-                    sol, _ = run_invivo_model(dose, time_param, params)
-                    dd_vals.append(sol[:, 3])       # DNA Damage (DD)
-                    necrosis_vals.append(sol[:, 4]) # Cell Death (CD)
-                    inflammation_vals.append(sol[:, 5])  # Inflammation (INF)
-                    kf_vals.append(sol[:, 6])            # Kidney Failure (KF)
-            except Exception as e:
-                logger.warning(f"Simulation {i+1}/{simulation_count} failed: {str(e)}")
-                if len(dd_vals) == 0:  # If no successful simulations yet, re-raise
-                    raise
-        
-        # Summarise the trajectories. The four near-identical numpy blocks that
-        # used to be inlined here now live in simulation_stats, so the versioned
-        # API layer can be imported without numpy. tests/test_simulation_stats.py
-        # pins the extracted output against the original expressions.
-        series_by_endpoint = {"dna_damage": np.array(dd_vals),
-                              "necrosis": np.array(necrosis_vals)}
-        if model_type == "invivo":
-            series_by_endpoint["inflammation"] = np.array(inflammation_vals)
-            series_by_endpoint["kidney_failure"] = np.array(kf_vals)
-
-        idx = np.argmin(np.abs(t_vals - time_param))
+        simulation = run_monte_carlo(model_type, dose, time_param, simulation_count)
 
         response = {
             "model_type": model_type,
             "dose": dose,
-            "dose_unit": unit,
+            "dose_unit": simulation["dose_unit"],
             "time": time_param,
             "time_unit": "hours",
             "simulation_count": simulation_count,
-            "endpoints": summarize_all(series_by_endpoint, t_vals, idx),
+            "endpoints": simulation["endpoints"],
         }
 
         # Log successful completion
@@ -623,7 +690,7 @@ def predict():
         log_performance_metric("api_predict_total", total_duration, "seconds", {
             "model_type": model_type,
             "simulation_count": simulation_count,
-            "successful_simulations": len(dd_vals)
+            "successful_simulations": simulation["successful_simulations"]
         })
         
         return jsonify(response)
@@ -645,6 +712,24 @@ def predict():
                 "error": f"Internal server error: {str(e)}"
             }), 500
 
+def _typical_range(model_type, parameter):
+    """Render the calibrated range for a parameter as a display string.
+
+    These strings used to be hardcoded and advertised values the validator
+    rejects -- invivo "1-20 mg/kg" against a 10.0 cap, and time ranges wider
+    than the accepted window -- so a client that trusted the catalogue got a
+    400. Derived from calibration and clipped to the accepted range, they can
+    no longer disagree with what the service will take. The full accepted range
+    is on /api/ranges and /api/v1/models.
+    """
+    accepted = validation.PARAMETER_RANGES[model_type][parameter]
+    envelope = calibration.CALIBRATED[model_type][parameter]
+    low = max(accepted["min"], envelope["min"])
+    high = min(accepted["max"], envelope["max"])
+    unit = accepted["unit"]
+    return f"{low:g}-{high:g} {unit}"
+
+
 @app.route("/api/models", methods=["GET"])
 def get_models():
     """Get information about available models."""
@@ -653,17 +738,17 @@ def get_models():
             "invitro": {
                 "description": "6-compartment model for RPTEC/TERT1 cell culture",
                 "dose_unit": "μM",
-                "typical_dose_range": "1-100 μM",
+                "typical_dose_range": _typical_range("invitro", "dose"),
                 "time_unit": "hours",
-                "typical_time_range": "1-72 hours",
+                "typical_time_range": _typical_range("invitro", "time"),
                 "endpoints": ["dna_damage", "necrosis"]
             },
             "invivo": {
                 "description": "8-compartment rat kidney model",
                 "dose_unit": "mg/kg",
-                "typical_dose_range": "1-20 mg/kg",
-                "time_unit": "hours", 
-                "typical_time_range": "1-700 hours",
+                "typical_dose_range": _typical_range("invivo", "dose"),
+                "time_unit": "hours",
+                "typical_time_range": _typical_range("invivo", "time"),
                 "endpoints": ["dna_damage", "necrosis", "inflammation", "kidney_failure"]
             }
         },
@@ -967,6 +1052,88 @@ def download_report():
         as_attachment=True,
         download_name=filename
     )
+
+
+# === Machine-readable API contract ===
+#
+# These are the artefacts a programmatic client (including an LLM agent) needs
+# in order to call the service correctly and read the result without
+# over-claiming. /llms.txt in particular carries the interpretation caveats.
+
+_REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+@app.route("/openapi.yaml", methods=["GET"])
+def openapi_yaml():
+    """Serve the OpenAPI 3.1 document."""
+    return send_file(os.path.join(_REPO_ROOT, "openapi.yaml"),
+                     mimetype="application/yaml")
+
+
+@app.route("/openapi.json", methods=["GET"])
+def openapi_json():
+    """Serve the same document as JSON, for clients that cannot read YAML."""
+    with open(os.path.join(_REPO_ROOT, "openapi.yaml"), encoding="utf-8") as handle:
+        return jsonify(yaml.safe_load(handle))
+
+
+@app.route("/docs", methods=["GET"])
+def api_docs():
+    """Browsable API reference."""
+    return render_template("docs.html")
+
+
+@app.route("/llms.txt", methods=["GET"])
+def llms_txt():
+    """Orientation and interpretation caveats for LLM agents."""
+    return send_file(os.path.join(_REPO_ROOT, "llms.txt"), mimetype="text/plain")
+
+
+# === JSON errors for the API surface ===
+#
+# Flask's default 404/405 pages are HTML, which breaks the single-envelope
+# promise on the first path typo. The web UI keeps its HTML errors.
+
+def _wants_json():
+    path = request.path or ""
+    return (path.startswith("/api/")
+            or path in ("/openapi.yaml", "/openapi.json", "/llms.txt"))
+
+
+@app.errorhandler(404)
+def handle_404(error):
+    if _wants_json():
+        return jsonify({"error": {
+            "code": "not_found",
+            "message": f"No such endpoint: {request.path}",
+            "details": {"documentation": "/docs", "contract": "/openapi.yaml"},
+        }}), 404
+    return error, 404
+
+
+@app.errorhandler(405)
+def handle_405(error):
+    if _wants_json():
+        return jsonify({"error": {
+            "code": "method_not_allowed",
+            "message": f"{request.method} is not allowed on {request.path}.",
+            "details": {"documentation": "/docs"},
+        }}), 405
+    return error, 405
+
+
+# === Versioned API ===
+#
+# Registered here, at the end, so every helper it injects is already defined.
+# api_v1 imports no numpy/scipy itself; run_monte_carlo and health_probe are
+# the only things that touch the scientific stack.
+init_api_v1(
+    app,
+    run_prediction=run_monte_carlo,
+    health_probe=health_probe,
+    service_version=SERVICE_VERSION,
+    time_points=config.TIME_POINTS,
+)
 
 
 # === Run the Flask app ===
