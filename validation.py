@@ -93,7 +93,10 @@ def validate_dose(dose: Any, model_type: str) -> float:
     # Type validation
     try:
         dose_float = float(dose)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, OverflowError) as e:
+        # OverflowError: float() of a JSON integer with more digits
+        # than a double can hold. Without it the exception escapes as
+        # an HTML 500, which breaks the single error envelope.
         raise ValidationError(f"Dose must be a numeric value, got {type(dose).__name__}") from e
     
     # NaN and +/-inf must be rejected explicitly: every comparison with NaN is
@@ -139,7 +142,10 @@ def validate_time(time: Any, model_type: str) -> float:
     # Type validation
     try:
         time_float = float(time)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, OverflowError) as e:
+        # OverflowError: float() of a JSON integer with more digits
+        # than a double can hold. Without it the exception escapes as
+        # an HTML 500, which breaks the single error envelope.
         raise ValidationError(f"Time must be a numeric value, got {type(time).__name__}") from e
     
     # See validate_dose: NaN would otherwise pass every range comparison.

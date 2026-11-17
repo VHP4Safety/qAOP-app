@@ -11,8 +11,11 @@ import json
 import os
 import sys
 
-import numpy as np
 import pytest
+
+# Needs numpy; the fast contract job deliberately has no scientific stack, so
+# skip rather than error when `pytest tests/` runs there.
+np = pytest.importorskip("numpy", reason="needs the scientific stack")
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

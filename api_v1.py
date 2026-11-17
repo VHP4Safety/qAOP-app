@@ -31,6 +31,10 @@ EXT_KEY = "qaop_api_v1"
 
 bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
+# The only fields POST /api/v1/predict accepts. Mirrors
+# PredictRequest.additionalProperties: false in openapi.yaml.
+ACCEPTED_PREDICT_FIELDS = ("model_type", "dose", "time", "simulation_count")
+
 # Every error code this surface can return, with its HTTP status. The contract
 # test asserts this mapping matches openapi.yaml in both directions, so adding
 # a code without documenting it fails CI.
@@ -115,6 +119,20 @@ def _validate_predict_request(payload):
             "invalid_request",
             f"Missing required fields: {', '.join(missing)}.",
             {"missing": missing},
+        )
+
+    # openapi.yaml declares additionalProperties: false on PredictRequest, so
+    # enforce it rather than letting the spec lie. Silently dropping an
+    # unrecognised field is the wrong default for a generated or model-written
+    # client: a wrong or invented parameter name should be reported, not
+    # ignored while the caller believes it took effect.
+    unknown = sorted(set(payload) - set(ACCEPTED_PREDICT_FIELDS))
+    if unknown:
+        return None, _error(
+            "invalid_request",
+            f"Unrecognised field(s): {', '.join(unknown)}. This endpoint "
+            f"accepts only {', '.join(ACCEPTED_PREDICT_FIELDS)}.",
+            {"unknown": unknown, "accepted": list(ACCEPTED_PREDICT_FIELDS)},
         )
 
     try:
