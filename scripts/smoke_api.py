@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
-"""
-Simple test script for the qAOP API endpoints.
-Run this after starting the Flask application.
-"""
-import requests
-import json
+"""Smoke-check the qAOP API against a running server.
 
-BASE_URL = "http://localhost:5000"
+This is a script, not a unit test: it needs a live server and prints a report
+rather than asserting. It lived at test_api.py, where pytest collected its
+`test_*` functions, ran them without a server and reported the failures as
+test failures. Moved here so the test suite stays meaningful.
+
+    python scripts/smoke_api.py                          # localhost:5000
+    python scripts/smoke_api.py https://qaop.vhp4safety.nl
+
+The unit tests are in test_validation.py, test_models.py and tests/.
+"""
+import json
+import sys
+
+import requests
+
+BASE_URL = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://localhost:5000"
 
 def test_health_check():
     """Test the health check endpoint."""

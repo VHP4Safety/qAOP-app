@@ -88,7 +88,46 @@ cp .env.example .env
 
 ## API Documentation
 
-The application provides a REST API for programmatic access:
+The application provides a REST API for programmatic access. **Use `/api/v1`.**
+
+| URL | Purpose |
+|-----|---------|
+| `/openapi.yaml`, `/openapi.json` | OpenAPI 3.1 contract |
+| `/docs` | Browsable reference |
+| `/llms.txt` | Orientation and interpretation caveats, for LLM agents |
+| `GET /api/v1/models` | Capabilities, accepted **and calibrated** ranges, endpoint definitions |
+| `GET /api/v1/ranges` | Parameter ranges |
+| `GET /api/v1/health` | Liveness |
+| `POST /api/v1/predict` | Prediction |
+
+`/api/v1` differs from the unversioned routes in three ways that matter to a
+programmatic client:
+
+- **One error envelope with machine-readable codes** --
+  `{"error": {"code", "message", "details"}}`. Branch on `code`, never on the
+  message. A missing `Content-Type` or malformed JSON returns a coded 415/400
+  rather than HTTP 500.
+- **Extrapolation is reported.** The accepted input ranges are much wider than
+  what the models were calibrated on, and because both ODE subsystems are
+  linear in dose they cannot fail loudly outside them. `POST /api/v1/predict`
+  returns a `warnings` array; an **empty array is the only case** in which a
+  request sits inside the calibrated domain. The in vivo histopathology
+  endpoints were scored at a single 5 mg/kg dose.
+- **The endpoints are described honestly.** `GET /api/v1/models` states that
+  `kidney_failure` is an expert-graded interstitial fibrosis severity score
+  rather than acute kidney injury or a probability of renal failure, that
+  `necrosis` means different measurements in the two models, and that the
+  percentile band propagates parameter uncertainty only and is not a
+  prediction interval.
+
+Read `/llms.txt` before reporting any number from this API.
+
+### Deprecated: the unversioned routes
+
+`GET /api/health`, `GET /api/models`, `GET /api/ranges` and `POST /api/predict`
+are **deprecated** and kept byte-compatible for an existing monitoring
+consumer. They have no error codes, no calibration warnings and no uncertainty
+statement. New clients must not use them. Documented below for reference only.
 
 ### Base URL
 ```
@@ -267,6 +306,22 @@ curl -X POST http://localhost:5000/api/predict \
 ```
 
 ## Testing
+
+```bash
+pytest test_validation.py test_models.py tests/   # the suite
+pytest tests/test_openapi_contract.py             # contract only, no scientific stack needed
+python scripts/smoke_api.py https://qaop.vhp4safety.nl   # against a running server
+```
+
+`tests/test_openapi_contract.py` fails if a served `/api/v1` route is
+undocumented, a documented path is not served, an error or warning code is not
+in the spec's enum, an example does not validate against its own schema, or the
+spec's numeric bounds drift from `validation.py`. It needs only Flask and the
+dev tools, because `api_v1` takes its dependencies by injection -- CI runs it as
+a separate fast job that asserts numpy/scipy/pandas/plotly are *absent*.
+
+`scripts/smoke_api.py` needs a live server and is not collected by pytest.
+
 
 Run the test suite to validate model functionality:
 

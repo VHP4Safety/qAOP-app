@@ -1,0 +1,7 @@
+# Test-only dependencies. The contract test deliberately needs none of the
+# scientific stack: api_v1 takes its heavy dependencies by injection.
+pytest==9.2.0
+pyyaml==6.0.2
+jsonschema==4.25.1
+openapi-spec-validator==0.7.2
+flask==3.1.3
