@@ -1,0 +1,809 @@
+openapi: 3.1.0
+
+info:
+  title: qAOP Predictor API
+  version: 1.0.0
+  summary: Quantitative AOP models of cisplatin-induced kidney injury.
+  description: |
+    Two quantitative adverse outcome pathway (qAOP) models of **cisplatin**
+    nephrotoxicity, solved as ODE systems with Monte Carlo sampling over
+    pre-calibrated Bayesian posterior parameter draws.
+
+    Use `/api/v1`. The unversioned `/api/*` routes are deprecated and frozen
+    for an existing consumer.
+
+    ## Reading the output without over-claiming
+
+    This matters more than the wire format, so it is stated here as well as in
+    `/llms.txt`:
+
+    - **`kidney_failure` is an expert-graded interstitial fibrosis severity
+      score on 0-1.** It is not acute kidney injury, not eGFR or creatinine,
+      not loss of kidney function and not a probability of renal failure. It is
+      cumulative and never decreases, so a longer simulated `time`
+      mechanically increases it.
+    - **`necrosis` means two different measurements.** In vitro it is the
+      fraction of propidium-iodide-positive cells, capped near 0.77 by a
+      sampled parameter, so the in vitro model cannot predict total cell
+      death. In vivo it is an expert-graded 0-1 severity score. The two must
+      not be compared or averaged.
+    - **`dna_damage` and `inflammation` are transcriptomic surrogates**
+      (eigengene scores of WGCNA modules in arbitrary units), not measured
+      lesion levels, concentrations or cell counts.
+    - **The percentile band is not a prediction interval.** It propagates
+      parameter uncertainty only, and excludes observation error,
+      between-animal variability, model-structure uncertainty and all in vivo
+      pharmacokinetic uncertainty. A narrow band does not mean the prediction
+      is accurate.
+    - **Results are stochastic with no seed.** Identical requests differ by a
+      few percent. Do not quote more than two significant figures. `min` and
+      `max` are sample extrema, not bounds.
+    - **The accepted ranges are much wider than the calibrated ones**, and the
+      models are linear in dose so they cannot fail loudly outside them. The
+      in vivo histopathology endpoints were scored at a single 5 mg/kg dose.
+      `POST /api/v1/predict` reports this per request in `warnings`; an empty
+      `warnings` array is the only case in which a request sits inside the
+      calibrated domain.
+
+    This is a research model, not a clinical, patient or regulatory
+    risk-assessment tool. It cannot speak to human risk, to any other
+    chemical, to repeated dosing, or to a point of departure.
+
+    Model provenance: doi:10.1093/toxsci/kfaf177 (PMID 41514178).
+  license:
+    name: See repository
+    url: https://github.com/VHP4Safety/qAOP-app
+  contact:
+    name: VHP4Safety
+    url: https://github.com/VHP4Safety/qAOP-app
+
+servers:
+  - url: https://qaop.vhp4safety.nl
+    description: Production
+
+tags:
+  - name: v1
+    description: Versioned JSON API. Use this.
+  - name: contract
+    description: Machine-readable contract and interpretation guidance.
+  - name: deprecated
+    description: Unversioned routes, frozen for an existing consumer.
+
+paths:
+  /api/v1/models:
+    get:
+      operationId: getModelsV1
+      tags: [v1]
+      summary: Model catalogue, accepted and calibrated ranges, endpoint definitions.
+      description: |
+        The entry point for a programmatic client. Reports accepted ranges
+        straight from the validator, the narrower calibrated domain, and what
+        each endpoint key physically means.
+      responses:
+        "200":
+          description: Catalogue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelsResponse"
+
+  /api/v1/ranges:
+    get:
+      operationId: getRangesV1
+      tags: [v1]
+      summary: Accepted and calibrated parameter ranges.
+      parameters:
+        - name: model_type
+          in: query
+          required: false
+          description: Restrict to one model. Case-insensitive.
+          schema:
+            $ref: "#/components/schemas/ModelType"
+      responses:
+        "200":
+          description: Ranges. One fixed shape whether or not model_type is given.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RangesResponse"
+        "400":
+          description: Unrecognised model_type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/health:
+    get:
+      operationId: getHealthV1
+      tags: [v1]
+      summary: Liveness and data-availability check.
+      responses:
+        "200":
+          description: Healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Degraded or unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/predict:
+    post:
+      operationId: predictV1
+      tags: [v1]
+      summary: Run the model and return summarised endpoint statistics.
+      description: |
+        Runs `simulation_count` Monte Carlo iterations, each sampling one
+        posterior parameter draw, and summarises the resulting trajectories.
+
+        Typical wall clock at the default 250 iterations is well under two
+        seconds. Individual iterations may fail and are skipped;
+        `request.simulations_succeeded` reports how many contributed, which
+        can be fewer than requested.
+
+        Always check `warnings` before using the numbers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictRequest"
+            examples:
+              calibrated_invivo:
+                summary: The calibrated in vivo point (no warnings)
+                value:
+                  model_type: invivo
+                  dose: 5
+                  time: 672
+              invitro:
+                summary: In vitro, dose in uM
+                value:
+                  model_type: invitro
+                  dose: 50
+                  time: 72
+                  simulation_count: 250
+      responses:
+        "200":
+          description: Prediction.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictResponse"
+        "400":
+          description: |
+            Bad request: `invalid_request`, `unknown_model`,
+            `parameter_out_of_range` or `malformed_json`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                out_of_range:
+                  summary: Dose above the accepted maximum
+                  value:
+                    error:
+                      code: parameter_out_of_range
+                      message: "Dose too high: 20.0 mg/kg (maximum: 10.0 mg/kg)"
+                      details:
+                        field: dose
+        "415":
+          description: Body was not sent as `application/json`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: The simulation could not be completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /openapi.yaml:
+    get:
+      operationId: getOpenApiYaml
+      tags: [contract]
+      summary: This document.
+      responses:
+        "200":
+          description: OpenAPI 3.1 document.
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /openapi.json:
+    get:
+      operationId: getOpenApiJson
+      tags: [contract]
+      summary: This document as JSON.
+      responses:
+        "200":
+          description: OpenAPI 3.1 document.
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /llms.txt:
+    get:
+      operationId: getLlmsTxt
+      tags: [contract]
+      summary: Orientation and interpretation caveats for LLM agents.
+      description: |
+        Plain-text guidance on what the endpoints mean, what the uncertainty
+        band is not, and what this service cannot answer. Read it before
+        reporting any number from this API.
+      responses:
+        "200":
+          description: Plain text.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /docs:
+    get:
+      operationId: getDocs
+      tags: [contract]
+      summary: Browsable API reference.
+      responses:
+        "200":
+          description: HTML page.
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/predict:
+    post:
+      operationId: predictLegacy
+      tags: [deprecated]
+      deprecated: true
+      summary: Deprecated. Use POST /api/v1/predict.
+      description: |
+        Frozen for an existing consumer. Returns the same `endpoints` block as
+        v1 but no error codes, no calibration warnings and no uncertainty
+        statement. New clients must not use it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictRequest"
+      responses:
+        "200":
+          description: Prediction in the legacy shape.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyPredictResponse"
+        "400":
+          description: Validation failure, as a bare message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyError"
+
+  /api/models:
+    get:
+      operationId: getModelsLegacy
+      tags: [deprecated]
+      deprecated: true
+      summary: Deprecated. Use GET /api/v1/models.
+      responses:
+        "200":
+          description: Legacy catalogue.
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ranges:
+    get:
+      operationId: getRangesLegacy
+      tags: [deprecated]
+      deprecated: true
+      summary: Deprecated. Use GET /api/v1/ranges.
+      description: |
+        The response has two different top-level shapes depending on whether
+        `model_type` is supplied, which is one reason v1 exists.
+      parameters:
+        - name: model_type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ModelType"
+      responses:
+        "200":
+          description: Legacy ranges.
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/health:
+    get:
+      operationId: getHealthLegacy
+      tags: [deprecated]
+      deprecated: true
+      summary: Deprecated. Use GET /api/v1/health.
+      responses:
+        "200":
+          description: Healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+        "503":
+          description: Degraded.
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    ModelType:
+      type: string
+      enum: [invitro, invivo]
+      description: |
+        `invitro` is RPTEC/TERT1 cells dosed in uM; `invivo` is rat kidney
+        dosed in mg/kg. Nothing converts between them.
+
+    EndpointName:
+      type: string
+      enum: [dna_damage, necrosis, inflammation, kidney_failure]
+      description: |
+        `inflammation` and `kidney_failure` are produced by the in vivo model
+        only. See ModelsResponse for what each one physically is.
+
+    ErrorCode:
+      type: string
+      description: Branch on this, never on the message.
+      enum:
+        - invalid_request
+        - unknown_model
+        - parameter_out_of_range
+        - malformed_json
+        - unsupported_media_type
+        - not_found
+        - method_not_allowed
+        - prediction_failed
+        - service_unavailable
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              $ref: "#/components/schemas/ErrorCode"
+            message:
+              type: string
+              description: Human-readable. May change between releases.
+            details:
+              type: object
+              description: Structured context, e.g. the offending field.
+              additionalProperties: true
+
+    LegacyError:
+      type: object
+      required: [error]
+      description: The deprecated routes return a bare message with no code.
+      properties:
+        error:
+          type: string
+
+    ParameterRange:
+      type: object
+      required: [min, max, unit]
+      properties:
+        min:
+          type: number
+        max:
+          type: number
+        unit:
+          type: string
+        description:
+          type: string
+
+    SimulationCountLimits:
+      type: object
+      required: [min, max, default]
+      properties:
+        min:
+          type: integer
+        max:
+          type: integer
+        default:
+          type: integer
+        description:
+          type: string
+
+    FinalValue:
+      type: object
+      description: |
+        Statistics of the ensemble at the requested `time`. Not a peak and not
+        a steady state. `min`/`max` are sample extrema, not bounds.
+      required:
+        [mean, std, median, min, max, percentile_2_5, percentile_25,
+         percentile_75, percentile_97_5]
+      properties:
+        mean:
+          type: number
+        std:
+          type: number
+        median:
+          type: number
+          description: Prefer this over the mean; the ensemble is skewed at low doses.
+        min:
+          type: number
+        max:
+          type: number
+        percentile_2_5:
+          type: number
+        percentile_25:
+          type: number
+        percentile_75:
+          type: number
+        percentile_97_5:
+          type: number
+
+    TimeSeries:
+      type: object
+      description: |
+        Pointwise statistics over the time grid. Each array has the same
+        length as `time_points`. Deliberately carries no `min`/`max`.
+      required:
+        [time_points, mean, std, median, percentile_2_5, percentile_25,
+         percentile_75, percentile_97_5]
+      properties:
+        time_points:
+          type: array
+          items:
+            type: number
+        mean:
+          type: array
+          items:
+            type: number
+        std:
+          type: array
+          items:
+            type: number
+        median:
+          type: array
+          items:
+            type: number
+        percentile_2_5:
+          type: array
+          items:
+            type: number
+        percentile_25:
+          type: array
+          items:
+            type: number
+        percentile_75:
+          type: array
+          items:
+            type: number
+        percentile_97_5:
+          type: array
+          items:
+            type: number
+
+    EndpointResult:
+      type: object
+      required: [final_value, time_series]
+      properties:
+        final_value:
+          $ref: "#/components/schemas/FinalValue"
+        time_series:
+          $ref: "#/components/schemas/TimeSeries"
+
+    EndpointResults:
+      type: object
+      description: |
+        Keyed by endpoint name. `dna_damage` and `necrosis` are always
+        present; `inflammation` and `kidney_failure` only for invivo.
+      required: [dna_damage, necrosis]
+      properties:
+        dna_damage:
+          $ref: "#/components/schemas/EndpointResult"
+        necrosis:
+          $ref: "#/components/schemas/EndpointResult"
+        inflammation:
+          $ref: "#/components/schemas/EndpointResult"
+        kidney_failure:
+          $ref: "#/components/schemas/EndpointResult"
+      additionalProperties: false
+
+    Warning:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - dose_outside_calibration
+            - time_outside_calibration
+            - histopathology_extrapolated
+            - below_detection_threshold
+            - uncertainty_band_degenerate
+            - monte_carlo_noise
+        message:
+          type: string
+        affects:
+          type: array
+          description: Endpoints this applies to. Absent means the whole response.
+          items:
+            $ref: "#/components/schemas/EndpointName"
+
+    ServiceBlock:
+      type: object
+      required: [name, version, api_version]
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+          description: |
+            Application version. Says nothing about the model calibration.
+        api_version:
+          type: string
+
+    PredictRequest:
+      type: object
+      required: [model_type, dose, time]
+      additionalProperties: false
+      properties:
+        model_type:
+          $ref: "#/components/schemas/ModelType"
+        dose:
+          type: number
+          description: |
+            uM for invitro (accepted 0.001-150, calibrated 0.1-50); mg/kg for
+            invivo (accepted 0.1-10, calibrated 1-7.5, histopathology scored
+            only at 5). Must be finite.
+        time:
+          type: number
+          description: |
+            Hours. Accepted 0.1-168 invitro, 1-2160 invivo; calibrated to 72
+            and 672 respectively. Must be finite.
+        simulation_count:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 250
+          description: |
+            Monte Carlo iterations. 1 yields a zero-width band shaped like a
+            real one; use 250 or more for anything quantitative.
+
+    PredictResponse:
+      type: object
+      required: [service, request, endpoints, uncertainty, warnings]
+      properties:
+        service:
+          $ref: "#/components/schemas/ServiceBlock"
+        request:
+          type: object
+          required:
+            [model_type, dose, dose_unit, time, time_unit, simulation_count,
+             simulations_succeeded]
+          properties:
+            model_type:
+              $ref: "#/components/schemas/ModelType"
+            dose:
+              type: number
+            dose_unit:
+              type: string
+            time:
+              type: number
+            time_unit:
+              type: string
+            simulation_count:
+              type: integer
+              description: As requested.
+            simulations_succeeded:
+              type: integer
+              description: |
+                How many iterations contributed. Fewer than
+                `simulation_count` means some failed and were skipped.
+        endpoints:
+          $ref: "#/components/schemas/EndpointResults"
+        uncertainty:
+          type: object
+          required: [kind, is_prediction_interval, note, reproducibility]
+          properties:
+            kind:
+              type: string
+            is_prediction_interval:
+              type: boolean
+              description: Always false. Kept explicit so clients cannot assume otherwise.
+              const: false
+            note:
+              type: string
+            reproducibility:
+              type: string
+        warnings:
+          type: array
+          description: |
+            Empty is the only case in which the request sits inside the
+            calibrated domain. Always check this.
+          items:
+            $ref: "#/components/schemas/Warning"
+        interpretation_guide:
+          type: string
+
+    LegacyPredictResponse:
+      type: object
+      required:
+        [model_type, dose, dose_unit, time, time_unit, simulation_count, endpoints]
+      properties:
+        model_type:
+          $ref: "#/components/schemas/ModelType"
+        dose:
+          type: number
+        dose_unit:
+          type: string
+        time:
+          type: number
+        time_unit:
+          type: string
+        simulation_count:
+          type: integer
+        endpoints:
+          $ref: "#/components/schemas/EndpointResults"
+
+    ModelsResponse:
+      type: object
+      required: [service, source, models, uncertainty, cannot_answer]
+      properties:
+        service:
+          $ref: "#/components/schemas/ServiceBlock"
+        source:
+          type: object
+          description: Model provenance.
+          properties:
+            doi:
+              type: string
+            pmid:
+              type: string
+            chemical:
+              type: string
+            note:
+              type: string
+        models:
+          type: object
+          additionalProperties:
+            type: object
+            required: [system, accepted, calibrated, endpoints, endpoint_metadata]
+            properties:
+              system:
+                type: string
+              accepted:
+                type: object
+                properties:
+                  dose:
+                    $ref: "#/components/schemas/ParameterRange"
+                  time:
+                    $ref: "#/components/schemas/ParameterRange"
+                  simulation_count:
+                    $ref: "#/components/schemas/SimulationCountLimits"
+              calibrated:
+                type: object
+                description: Narrower than `accepted`. See the warnings on predict.
+                properties:
+                  dose:
+                    $ref: "#/components/schemas/ParameterRange"
+                  time:
+                    $ref: "#/components/schemas/ParameterRange"
+              endpoints:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EndpointName"
+              endpoint_metadata:
+                type: object
+                description: |
+                  What each endpoint physically is. The keys were kept for
+                  backward compatibility, so the honest definition travels
+                  here instead of in the name.
+                additionalProperties:
+                  type: object
+                  properties:
+                    label:
+                      type: string
+                    unit:
+                      type: string
+                    definition:
+                      type: string
+                    temporal_behaviour:
+                      type: string
+                    cross_model_comparable:
+                      type: boolean
+              endpoint_calibration:
+                type: object
+                additionalProperties: true
+              time_points:
+                type: integer
+        uncertainty:
+          type: object
+          additionalProperties: true
+        cannot_answer:
+          type: array
+          description: Questions this service must not be used to answer.
+          items:
+            type: string
+        interpretation_guide:
+          type: string
+
+    RangesResponse:
+      type: object
+      required: [service, simulation_count, models]
+      properties:
+        service:
+          $ref: "#/components/schemas/ServiceBlock"
+        simulation_count:
+          $ref: "#/components/schemas/SimulationCountLimits"
+        models:
+          type: object
+          additionalProperties:
+            type: object
+            required: [accepted, calibrated]
+            properties:
+              accepted:
+                type: object
+                properties:
+                  dose:
+                    $ref: "#/components/schemas/ParameterRange"
+                  time:
+                    $ref: "#/components/schemas/ParameterRange"
+              calibrated:
+                type: object
+                properties:
+                  dose:
+                    $ref: "#/components/schemas/ParameterRange"
+                  time:
+                    $ref: "#/components/schemas/ParameterRange"
+
+    HealthResponse:
+      type: object
+      required: [status, service, checks, configuration, models]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+        service:
+          $ref: "#/components/schemas/ServiceBlock"
+        checks:
+          type: object
+          properties:
+            data:
+              type: object
+              additionalProperties:
+                type: boolean
+            models:
+              type: object
+              additionalProperties:
+                type: boolean
+        configuration:
+          type: object
+          properties:
+            simulation_count:
+              type: integer
+            time_points:
+              type: integer
+            debug:
+              type: boolean
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelType"

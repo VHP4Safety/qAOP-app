@@ -1,0 +1,168 @@
+# qAOP Predictor
+
+Quantitative adverse outcome pathway (qAOP) models of **cisplatin-induced kidney
+injury**, served as a JSON API and a web UI at https://qaop.vhp4safety.nl.
+
+Machine-readable contract: /openapi.yaml (or /openapi.json). Browsable: /docs.
+Use **/api/v1**. The unversioned /api/* routes are deprecated and frozen for an
+existing consumer.
+
+## Start here
+
+    GET  /api/v1/models      capabilities, accepted AND calibrated ranges, endpoint definitions
+    GET  /api/v1/ranges      accepted and calibrated parameter ranges
+    POST /api/v1/predict     run the model
+    GET  /api/v1/health      liveness
+
+    curl -X POST https://qaop.vhp4safety.nl/api/v1/predict \
+      -H 'Content-Type: application/json' \
+      -d '{"model_type":"invivo","dose":5,"time":672}'
+
+Inputs are only `model_type` ("invitro" or "invivo"), `dose`, `time` and an
+optional `simulation_count` (1-1000, default 250). Anything else is ignored.
+
+## What this service is NOT
+
+It cannot answer, and must not be used to answer:
+
+- human or patient risk
+- any chemical other than cisplatin
+- repeated, chronic or multi-cycle dosing
+- a benchmark dose, BMD, BMDL, NOAEL or any point of departure
+- whether a dose is safe
+- kidney function, creatinine or eGFR
+- in vitro to in vivo extrapolation
+- any species other than RPTEC/TERT1 cells and rat
+
+This is a research model. It is not a clinical, patient or regulatory
+risk-assessment tool.
+
+## The two models are separate
+
+`invitro` is RPTEC/TERT1 renal proximal tubule epithelial cells in culture,
+dosed in **uM**. `invivo` is rat kidney after a single intravenous dose, in
+**mg/kg**. Nothing converts between them and the service performs no in vitro
+to in vivo extrapolation. Confusing the units silently produces a valid-looking
+answer to a different question.
+
+## What the endpoints actually are
+
+`dna_damage` -- eigengene score of TXG-MAPr WGCNA module rKID:160 (p53 target
+genes), in arbitrary units, computed from log2 fold-change against control. A
+transcriptomic surrogate, **not** a measured DNA lesion level, concentration or
+cell count. Peaks and then decays.
+
+`necrosis` -- **two different measurements under one key.** In vitro: the
+*fraction* (not percentage) of propidium-iodide-positive cells, capped at a
+sampled parameter whose posterior runs 0.700-0.998 (median 0.767), so the in
+vitro model structurally **cannot** predict total cell death. In vivo:
+expert-graded H&E necrosis severity on a 0-1 ordinal scale. **Do not compare or
+average the two.**
+
+`inflammation` (in vivo only) -- eigengene score of module rKID:7m (NF-kB target
+genes), roughly 0-8 on the calibration scale. A transcriptomic surrogate.
+
+`kidney_failure` (in vivo only) -- expert-graded **interstitial fibrosis
+severity**, mapped onto 0-1 in increasing order of severity. The source figure
+for this state variable is titled "Fibrosis"; the AOP diagram box reads "Kidney
+Failure". It is **not** acute kidney injury, **not** eGFR or creatinine,
+**not** loss of kidney function and **not** a probability of renal failure. It
+is cumulative and never decreases, so a longer simulated time mechanically
+increases it, and its asymptote depends on dose.
+
+## Reading a result
+
+`final_value` is the value **at the time you asked for** -- not a peak, not a
+steady state. Because endpoints behave differently in time (kidney failure
+accumulates; the others peak and decay), changing `time` moves them in opposite
+directions. Compare runs only at the same `time`.
+
+**The percentile band is not a prediction interval.** `percentile_2_5` and
+`percentile_97_5` are percentiles of the Monte Carlo ensemble over
+pre-calibrated posterior parameter draws. They exclude observation and residual
+error, between-animal and between-replicate variability, model-structure
+uncertainty, and **all in vivo pharmacokinetic uncertainty** (the PK rate
+constants and scale factor are hard-coded, and their omitted uncertainty is
+larger than the band shows). The band is pointwise over the time grid, not a
+simultaneous band over trajectories, and in the in vivo fit it is narrower than
+the spread of the data it was fitted to. **A narrow band does not mean the
+prediction is accurate.**
+
+**Results are stochastic and there is no seed.** Repeated identical
+250-iteration requests differ by a few percent. Do not quote more than **two
+significant figures**, and do not read a small run-to-run difference as a
+signal. `min` and `max` are sample extrema, not bounds.
+
+**Very small values are numerical artefacts.** The Hill exponents are large
+(roughly 18-38), so far below the calibrated dose range the output falls orders
+of magnitude below anything the calibrating assays could detect. A necrosis
+value of 1e-23 does not mean "a little necrosis"; it means the model is outside
+the region where it carries information.
+
+## Calibrated versus accepted
+
+The accepted input ranges are **much wider** than the data the models were
+fitted to, and the service will not fail loudly outside them: both kinetic
+subsystems are linear in dose, with dose entering only through the initial
+conditions, so an out-of-range dose produces output that looks exactly as
+well-behaved as a calibrated one.
+
+| | accepted | calibrated |
+|---|---|---|
+| invitro dose | 0.001-150 uM | 0.1-50 uM |
+| invitro time | 0.1-168 h | to 72 h |
+| invivo dose | 0.1-10 mg/kg | 1-7.5 mg/kg |
+| invivo time | 1-2160 h | to 672 h |
+
+Narrower still, and the single most important caveat for the in vivo model:
+**the histopathology endpoints (`necrosis`, `kidney_failure`) were scored at one
+dose only -- 5 mg/kg**, 12 time points to 672 h, 3 rats per point. Every in vivo
+necrosis or fibrosis number at any other dose is extrapolation with no
+supporting histopathology. In vivo dose-response data at 1/2.5/5/7.5 mg/kg exist
+for transcriptomics and kinetics only.
+
+For `invitro` necrosis: PI-positive cells were absent below 50 uM and early
+(<20 h) data were discarded, so below 50 uM the value is a switch output rather
+than a measurement-backed prediction. At the top of the accepted range the
+output is essentially the fitted saturation constant: 100 uM and 150 uM differ
+in the fourth decimal place, so the model has no dose resolution there.
+
+`/api/v1/predict` reports all of this per request in `warnings[]`, with codes
+`dose_outside_calibration`, `time_outside_calibration`,
+`histopathology_extrapolated`, `below_detection_threshold`,
+`uncertainty_band_degenerate` and `monte_carlo_noise`. **An empty `warnings`
+array is the only case in which the request sits inside the calibrated domain.**
+`simulation_count=1` is accepted and produces a zero-width band shaped exactly
+like a real one; use the default of 250 or more for anything quantitative.
+
+## Errors
+
+Every /api/v1 error is `{"error": {"code", "message", "details"}}`. Branch on
+`code`, never on `message`. Codes: `invalid_request`, `unknown_model`,
+`parameter_out_of_range`, `malformed_json`, `unsupported_media_type`,
+`not_found`, `method_not_allowed`, `prediction_failed`, `service_unavailable`.
+A 4xx means fix the request; only `prediction_failed` and
+`service_unavailable` are server-side.
+
+## Not established by this service
+
+Do not assert these; they could not be settled from the code and data shipped
+here, and the API deliberately does not claim them:
+
+- the exact mapping of the five histopathology categories
+  (Absent/Minimal/Mild/Moderate/Marked) onto 0-1
+- whether the in vitro and in vivo `dna_damage` arbitrary units are on the same
+  scale -- treat them as **not** numerically comparable
+- the physical units of the in vivo pharmacokinetic states
+- whether the posterior draw files are post-warmup, post-thinning, converged
+  samples; no per-parameter convergence diagnostics ship with the service, so
+  the band cannot be described as a verified posterior-propagation band
+
+## Provenance
+
+Model and calibration: Toxicological Sciences, doi:10.1093/toxsci/kfaf177
+(PMID 41514178). Posterior draws: `draws_cisDDNEC2024-08-05` (in vitro),
+`draws_cisvivo2024-08-07` (in vivo). The `version` reported by the API is the
+**application** version and says nothing about the model calibration.
+
+Source: https://github.com/VHP4Safety/qAOP-app

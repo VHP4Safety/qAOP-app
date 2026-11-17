@@ -4,6 +4,7 @@ Defines scientifically reasonable ranges for dose and time parameters.
 """
 from typing import Dict, Tuple, Any
 import logging
+import math
 
 logger = logging.getLogger("qAOP.validation")
 
@@ -92,8 +93,16 @@ def validate_dose(dose: Any, model_type: str) -> float:
     # Type validation
     try:
         dose_float = float(dose)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, OverflowError) as e:
+        # OverflowError: float() of a JSON integer with more digits
+        # than a double can hold. Without it the exception escapes as
+        # an HTML 500, which breaks the single error envelope.
         raise ValidationError(f"Dose must be a numeric value, got {type(dose).__name__}") from e
+    
+    # NaN and +/-inf must be rejected explicitly: every comparison with NaN is
+    # False, so the range checks below would pass it through to the ODE solver.
+    if not math.isfinite(dose_float):
+        raise ValidationError(f"Dose must be a finite number, got {dose_float}")
     
     # Range validation
     dose_range = PARAMETER_RANGES[model_type]["dose"]
@@ -133,8 +142,15 @@ def validate_time(time: Any, model_type: str) -> float:
     # Type validation
     try:
         time_float = float(time)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, OverflowError) as e:
+        # OverflowError: float() of a JSON integer with more digits
+        # than a double can hold. Without it the exception escapes as
+        # an HTML 500, which breaks the single error envelope.
         raise ValidationError(f"Time must be a numeric value, got {type(time).__name__}") from e
+    
+    # See validate_dose: NaN would otherwise pass every range comparison.
+    if not math.isfinite(time_float):
+        raise ValidationError(f"Time must be a finite number, got {time_float}")
     
     # Range validation
     time_range = PARAMETER_RANGES[model_type]["time"]
@@ -172,7 +188,7 @@ def validate_simulation_count(simulation_count: Any) -> int:
     # Type validation
     try:
         count_int = int(simulation_count)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, OverflowError) as e:
         raise ValidationError(f"Simulation count must be an integer, got {type(simulation_count).__name__}") from e
     
     # Range validation
@@ -234,7 +250,9 @@ def get_parameter_ranges(model_type: str = None) -> Dict[str, Any]:
         Parameter ranges dictionary
     """
     if model_type:
-        validate_model_type(model_type)
+        # Index with the NORMALISED value. Indexing with the raw string made
+        # ?model_type=INVIVO a KeyError, i.e. a 500 on a documented GET route.
+        model_type = validate_model_type(model_type)
         return {
             "model": model_type,
             "parameters": PARAMETER_RANGES[model_type],

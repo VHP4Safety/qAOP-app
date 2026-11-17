@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>qAOP Predictor API</title>
+    <style>
+        body { margin: 0; padding: 0; }
+        /* Shown before Redoc paints, and left visible if the CDN is blocked
+           or the integrity check fails, so the page is never simply blank. */
+        #fallback {
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            max-width: 46rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5;
+        }
+        #fallback code { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div id="fallback">
+        <h1>qAOP Predictor API</h1>
+        <p>
+            The interactive reference needs a script from a CDN. If this text is
+            still visible, that script did not load.
+        </p>
+        <p>
+            The contract itself is always available at
+            <a href="/openapi.yaml"><code>/openapi.yaml</code></a>
+            (or <a href="/openapi.json"><code>/openapi.json</code></a>), and the
+            interpretation caveats at <a href="/llms.txt"><code>/llms.txt</code></a>.
+            Start a programmatic client at <code>GET /api/v1/models</code>.
+        </p>
+    </div>
+
+    <div id="redoc"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js"
+            integrity="sha256-vlwzMMjDW4/OsppbdVKtRb/8L9lJT+LhqC+pQXnrX48="
+            crossorigin="anonymous"></script>
+    <script>
+        // Only clear the fallback once Redoc is actually present.
+        if (window.Redoc && typeof window.Redoc.init === "function") {
+            document.getElementById("fallback").remove();
+            window.Redoc.init("/openapi.yaml", {
+                hideDownloadButton: false,
+                expandResponses: "200",
+                scrollYOffset: 0
+            }, document.getElementById("redoc"));
+        }
+    </script>
+</body>
+</html>

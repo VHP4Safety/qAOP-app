@@ -1,0 +1,71 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Fast gate. api_v1 takes its heavy dependencies by injection, so the
+  # contract between the served routes and openapi.yaml can be checked without
+  # numpy, scipy, pandas or plotly. Runs in seconds.
+  contract:
+    name: Contract (no scientific stack)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Assert the scientific stack really is absent
+        # If one of these ever becomes importable the job silently stops
+        # proving anything, so fail loudly instead.
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          leaked = [m for m in ("numpy", "scipy", "pandas", "plotly")
+                    if importlib.util.find_spec(m) is not None]
+          if leaked:
+              sys.exit(f"these should not be installed in this job: {leaked}")
+          print("confirmed absent: numpy, scipy, pandas, plotly")
+          PY
+
+      - name: Contract tests
+        run: pytest tests/test_openapi_contract.py -v
+
+  # Everything else, with the real scientific stack.
+  full:
+    name: Full suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run the suite
+        # scripts/smoke_api.py is deliberately excluded: it needs a live server.
+        run: pytest test_validation.py test_models.py tests/ -v

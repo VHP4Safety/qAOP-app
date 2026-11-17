@@ -22,7 +22,16 @@ ENV/
 .venv/
 
 # Tests
+# `test_*.py` matches at the context root only, so the patterns below are
+# needed for anything nested -- without them tests/ ships in the production
+# image. Runtime files (api_v1.py, calibration.py, simulation_stats.py,
+# openapi.yaml, llms.txt, templates/docs.html) must NOT be excluded here.
 test_*.py
+**/test_*.py
+tests/
+scripts/
+requirements-dev.txt
+pytest.ini
 .pytest_cache/
 .coverage
 htmlcov/

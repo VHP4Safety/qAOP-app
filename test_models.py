@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from unittest.mock import patch, MagicMock
+import validation
 from app import (
     invitro_model, invivo_model,
     sample_random_iteration,
@@ -107,6 +108,10 @@ class TestParameterSampling:
             'k_cDD': 0.1, 'd_DD': 0.2, 'k_hillDD': 0.3, 'k_inter': 0.4,
             'maxdeath': 0.5, 'k_hillnec': 0.6, 'p': 0.7, 'h': 0.8
         })
+        # sample_random_iteration guards with `if <frame>.empty:`, and any
+        # MagicMock attribute is truthy, so the mock looked like an empty
+        # frame and the guard rejected it.
+        mock_df.empty = False
         mock_df.sample.return_value.iloc = [mock_row]
         
         params = sample_random_iteration("invitro")
@@ -123,6 +128,10 @@ class TestParameterSampling:
             'h1': 0.5, 'k_hillnec': 0.6, 'd_CD': 0.7, 'k_CDINF': 0.8,
             'd_INF': 0.9, 'k_INFKF': 1.0, 'hillKF': 1.1, 'INF0': 1.2
         })
+        # sample_random_iteration guards with `if <frame>.empty:`, and any
+        # MagicMock attribute is truthy, so the mock looked like an empty
+        # frame and the guard rejected it.
+        mock_df.empty = False
         mock_df.sample.return_value.iloc = [mock_row]
         
         params = sample_random_iteration("invivo")
@@ -191,20 +200,32 @@ class TestNumericalStability:
         assert np.all(solution >= -1e-10), "No states should go significantly negative"
         assert np.all(np.isfinite(solution)), "All solution values should be finite"
     
-    def test_zero_dose_invivo(self):
-        """Test invivo model with zero dose."""
-        dose = 0.0
+    def test_zero_dose_invivo_is_rejected_not_silently_wrong(self):
+        """A zero in vivo dose yields non-finite values, and the solver says so.
+
+        Zero is below the accepted minimum (validation floors the in vivo dose
+        at 0.1 mg/kg), so this input cannot arrive through the API. It is
+        pinned because the failure mode matters: with INF starting at zero and
+        a fractional Hill exponent, the kidney-failure derivative evaluates
+        0**negative, so the integration produces NaN. The guard in
+        run_invivo_model turns that into an explicit error rather than
+        returning a plausible-looking array of NaN.
+        """
         params = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2]
-        
-        solution, t = run_invivo_model(dose, 48.0, params)
-        
-        # Check that solution is finite and doesn't explode
-        finite_solution = solution[np.isfinite(solution)]
-        if len(finite_solution) > 0:
-            assert np.all(np.abs(finite_solution) < 1000), "Solution should not explode"
-        
-        # Check that at least the initial conditions are reasonable
+
+        with pytest.raises(RuntimeError, match="non-finite"):
+            run_invivo_model(0.0, 48.0, params)
+
+    def test_minimum_accepted_dose_invivo_is_stable(self):
+        """The lowest dose the API actually accepts must integrate cleanly."""
+        minimum = validation.PARAMETER_RANGES["invivo"]["dose"]["min"]
+        params = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2]
+
+        solution, t = run_invivo_model(minimum, 48.0, params)
+
         assert len(solution) > 0, "Should have solution points"
+        assert np.all(np.isfinite(solution)), "Solution should be finite"
+        assert np.all(np.abs(solution) < 1000), "Solution should not explode"
     
     def test_large_dose_stability(self):
         """Test model stability with large doses."""

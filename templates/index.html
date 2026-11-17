@@ -149,12 +149,12 @@
         <p>{{ result_dd }}</p>
         {% if plot_time_dd %}
         <h4>Time Course</h4>
-        <p class="plot-description">Shows how DNA damage evolves over time with 95% confidence intervals (light shading) and interquartile range (darker shading). Click legend items to toggle visibility. Hover for exact values, zoom/pan to explore.</p>
+        <p class="plot-description">Shows how DNA damage evolves over time with the 2.5-97.5 percentile parameter-uncertainty band (light shading) and interquartile range (darker shading). Click legend items to toggle visibility. Hover for exact values, zoom/pan to explore.</p>
         <div id="plot-time-dd" style="width:100%; height:500px;"></div>
         {% endif %}
         {% if plot_dist_dd %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Statistical distribution of DNA damage at <span class="dist-time-label">{{ time if time else 24 }}</span> hours with interactive histogram, KDE curve, and box plot. Markers show mean, median, and 95% CI. Zoom and hover for details.</p>
+        <p class="plot-description">Statistical distribution of DNA damage at <span class="dist-time-label">{{ time if time else 24 }}</span> hours with interactive histogram, KDE curve, and box plot. Markers show mean, median, and the 2.5/97.5 percentiles of the parameter-uncertainty band. Zoom and hover for details.</p>
         <div class="plot-with-slider">
             <div id="plot-dist-dd" style="width:100%; height:600px;"></div>
             <div class="dist-time-slider-container" data-endpoint="dd">
@@ -173,7 +173,7 @@
         <p>{{ result_nec }}</p>
         {% if plot_time_nec %}
         <h4>Time Course</h4>
-        <p class="plot-description">Necrosis progression over time with 95% confidence intervals and IQR bands. Interactive plot allows zoom/pan and hover for exact values at each time point.</p>
+        <p class="plot-description">Necrosis progression over time with the 2.5-97.5 percentile parameter-uncertainty band and IQR bands. Interactive plot allows zoom/pan and hover for exact values at each time point.</p>
         <div id="plot-time-nec" style="width:100%; height:500px;"></div>
         {% endif %}
         {% if plot_dist_nec %}
@@ -198,12 +198,12 @@
         <p>{{ result_infl }}</p>
         {% if plot_time_infl %}
         <h4>Time Course</h4>
-        <p class="plot-description">Interactive inflammation response over time with confidence intervals. Zoom to explore peaks and recovery phases, hover for exact values.</p>
+        <p class="plot-description">Interactive inflammation response over time with the parameter-uncertainty band. Zoom to explore peaks and recovery phases, hover for exact values.</p>
         <div id="plot-time-infl" style="width:100%; height:500px;"></div>
         {% endif %}
         {% if plot_dist_infl %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Inflammation distribution at <span class="dist-time-label">{{ time if time else 48 }}</span> hours with interactive statistical visualizations and confidence interval markers.</p>
+        <p class="plot-description">Inflammation distribution at <span class="dist-time-label">{{ time if time else 48 }}</span> hours with interactive statistical visualizations and parameter-uncertainty band markers.</p>
         <div class="plot-with-slider">
             <div id="plot-dist-infl" style="width:100%; height:600px;"></div>
             <div class="dist-time-slider-container" data-endpoint="infl">
@@ -228,7 +228,7 @@
         {% endif %}
         {% if plot_dist_kf %}
         <h4>Distribution at Selected Time</h4>
-        <p class="plot-description">Kidney failure risk distribution at <span class="dist-time-label">{{ time if time else 48 }}</span> hours with interactive statistical visualization and confidence intervals.</p>
+        <p class="plot-description">Interstitial fibrosis severity distribution at <span class="dist-time-label">{{ time if time else 48 }}</span> hours with interactive statistical visualization and the parameter-uncertainty band.</p>
         <div class="plot-with-slider">
             <div id="plot-dist-kf" style="width:100%; height:600px;"></div>
             <div class="dist-time-slider-container" data-endpoint="kf">
@@ -766,7 +766,7 @@
                     { type: 'line', x0: mean, x1: mean, y0: 0, y1: 1, yref: 'paper', line: { color: 'blue', dash: 'dash' }, xaxis: 'x', yaxis: 'y' },
                     // Median line
                     { type: 'line', x0: median, x1: median, y0: 0, y1: 1, yref: 'paper', line: { color: 'green', dash: 'dot' }, xaxis: 'x', yaxis: 'y' },
-                    // 95% CI lines
+                    // 2.5/97.5 percentile band lines
                     { type: 'line', x0: p2_5, x1: p2_5, y0: 0, y1: 1, yref: 'paper', line: { color: 'red', dash: 'dash', width: 1 }, xaxis: 'x', yaxis: 'y' },
                     { type: 'line', x0: p97_5, x1: p97_5, y0: 0, y1: 1, yref: 'paper', line: { color: 'red', dash: 'dash', width: 1 }, xaxis: 'x', yaxis: 'y' }
                 ],
