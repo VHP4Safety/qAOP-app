@@ -8,7 +8,6 @@ import numpy as np
 from scipy.integrate import odeint
 from scipy.stats import gaussian_kde
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import io
@@ -20,6 +19,7 @@ from functools import wraps
 from config import get_config
 from logger import setup_logging, log_request, log_simulation_start, log_simulation_complete, log_error, log_performance_metric
 from validation import validate_prediction_request, get_parameter_ranges, ValidationError
+from simulation_stats import summarize_all
 
 # === Initialize the Flask app with configuration ===
 config = get_config()
@@ -594,13 +594,18 @@ def predict():
                 if len(dd_vals) == 0:  # If no successful simulations yet, re-raise
                     raise
         
-        # Convert to arrays and calculate statistics
-        dd_vals = np.array(dd_vals)
-        necrosis_vals = np.array(necrosis_vals)
-        
+        # Summarise the trajectories. The four near-identical numpy blocks that
+        # used to be inlined here now live in simulation_stats, so the versioned
+        # API layer can be imported without numpy. tests/test_simulation_stats.py
+        # pins the extracted output against the original expressions.
+        series_by_endpoint = {"dna_damage": np.array(dd_vals),
+                              "necrosis": np.array(necrosis_vals)}
+        if model_type == "invivo":
+            series_by_endpoint["inflammation"] = np.array(inflammation_vals)
+            series_by_endpoint["kidney_failure"] = np.array(kf_vals)
+
         idx = np.argmin(np.abs(t_vals - time_param))
-        
-        # Prepare response
+
         response = {
             "model_type": model_type,
             "dose": dose,
@@ -608,109 +613,9 @@ def predict():
             "time": time_param,
             "time_unit": "hours",
             "simulation_count": simulation_count,
-            "endpoints": {
-                "dna_damage": {
-                    "final_value": {
-                        "mean": float(np.mean(dd_vals[:, idx])),
-                        "std": float(np.std(dd_vals[:, idx])),
-                        "median": float(np.median(dd_vals[:, idx])),
-                        "min": float(np.min(dd_vals[:, idx])),
-                        "max": float(np.max(dd_vals[:, idx])),
-                        "percentile_2_5": float(np.percentile(dd_vals[:, idx], 2.5)),
-                        "percentile_25": float(np.percentile(dd_vals[:, idx], 25)),
-                        "percentile_75": float(np.percentile(dd_vals[:, idx], 75)),
-                        "percentile_97_5": float(np.percentile(dd_vals[:, idx], 97.5))
-                    },
-                    "time_series": {
-                        "time_points": t_vals.tolist(),
-                        "mean": np.mean(dd_vals, axis=0).tolist(),
-                        "std": np.std(dd_vals, axis=0).tolist(),
-                        "median": np.median(dd_vals, axis=0).tolist(),
-                        "percentile_2_5": np.percentile(dd_vals, 2.5, axis=0).tolist(),
-                        "percentile_25": np.percentile(dd_vals, 25, axis=0).tolist(),
-                        "percentile_75": np.percentile(dd_vals, 75, axis=0).tolist(),
-                        "percentile_97_5": np.percentile(dd_vals, 97.5, axis=0).tolist()
-                    }
-                },
-                "necrosis": {
-                    "final_value": {
-                        "mean": float(np.mean(necrosis_vals[:, idx])),
-                        "std": float(np.std(necrosis_vals[:, idx])),
-                        "median": float(np.median(necrosis_vals[:, idx])),
-                        "min": float(np.min(necrosis_vals[:, idx])),
-                        "max": float(np.max(necrosis_vals[:, idx])),
-                        "percentile_2_5": float(np.percentile(necrosis_vals[:, idx], 2.5)),
-                        "percentile_25": float(np.percentile(necrosis_vals[:, idx], 25)),
-                        "percentile_75": float(np.percentile(necrosis_vals[:, idx], 75)),
-                        "percentile_97_5": float(np.percentile(necrosis_vals[:, idx], 97.5))
-                    },
-                    "time_series": {
-                        "time_points": t_vals.tolist(),
-                        "mean": np.mean(necrosis_vals, axis=0).tolist(),
-                        "std": np.std(necrosis_vals, axis=0).tolist(),
-                        "median": np.median(necrosis_vals, axis=0).tolist(),
-                        "percentile_2_5": np.percentile(necrosis_vals, 2.5, axis=0).tolist(),
-                        "percentile_25": np.percentile(necrosis_vals, 25, axis=0).tolist(),
-                        "percentile_75": np.percentile(necrosis_vals, 75, axis=0).tolist(),
-                        "percentile_97_5": np.percentile(necrosis_vals, 97.5, axis=0).tolist()
-                    }
-                }
-            }
+            "endpoints": summarize_all(series_by_endpoint, t_vals, idx),
         }
-        
-        # Add invivo-specific endpoints
-        if model_type == "invivo":
-            inflammation_vals = np.array(inflammation_vals)
-            kf_vals = np.array(kf_vals)
-            
-            response["endpoints"]["inflammation"] = {
-                "final_value": {
-                    "mean": float(np.mean(inflammation_vals[:, idx])),
-                    "std": float(np.std(inflammation_vals[:, idx])),
-                    "median": float(np.median(inflammation_vals[:, idx])),
-                    "min": float(np.min(inflammation_vals[:, idx])),
-                    "max": float(np.max(inflammation_vals[:, idx])),
-                    "percentile_2_5": float(np.percentile(inflammation_vals[:, idx], 2.5)),
-                    "percentile_25": float(np.percentile(inflammation_vals[:, idx], 25)),
-                    "percentile_75": float(np.percentile(inflammation_vals[:, idx], 75)),
-                    "percentile_97_5": float(np.percentile(inflammation_vals[:, idx], 97.5))
-                },
-                "time_series": {
-                    "time_points": t_vals.tolist(),
-                    "mean": np.mean(inflammation_vals, axis=0).tolist(),
-                    "std": np.std(inflammation_vals, axis=0).tolist(),
-                    "median": np.median(inflammation_vals, axis=0).tolist(),
-                    "percentile_2_5": np.percentile(inflammation_vals, 2.5, axis=0).tolist(),
-                    "percentile_25": np.percentile(inflammation_vals, 25, axis=0).tolist(),
-                    "percentile_75": np.percentile(inflammation_vals, 75, axis=0).tolist(),
-                    "percentile_97_5": np.percentile(inflammation_vals, 97.5, axis=0).tolist()
-                }
-            }
 
-            response["endpoints"]["kidney_failure"] = {
-                "final_value": {
-                    "mean": float(np.mean(kf_vals[:, idx])),
-                    "std": float(np.std(kf_vals[:, idx])),
-                    "median": float(np.median(kf_vals[:, idx])),
-                    "min": float(np.min(kf_vals[:, idx])),
-                    "max": float(np.max(kf_vals[:, idx])),
-                    "percentile_2_5": float(np.percentile(kf_vals[:, idx], 2.5)),
-                    "percentile_25": float(np.percentile(kf_vals[:, idx], 25)),
-                    "percentile_75": float(np.percentile(kf_vals[:, idx], 75)),
-                    "percentile_97_5": float(np.percentile(kf_vals[:, idx], 97.5))
-                },
-                "time_series": {
-                    "time_points": t_vals.tolist(),
-                    "mean": np.mean(kf_vals, axis=0).tolist(),
-                    "std": np.std(kf_vals, axis=0).tolist(),
-                    "median": np.median(kf_vals, axis=0).tolist(),
-                    "percentile_2_5": np.percentile(kf_vals, 2.5, axis=0).tolist(),
-                    "percentile_25": np.percentile(kf_vals, 25, axis=0).tolist(),
-                    "percentile_75": np.percentile(kf_vals, 75, axis=0).tolist(),
-                    "percentile_97_5": np.percentile(kf_vals, 97.5, axis=0).tolist()
-                }
-            }
-        
         # Log successful completion
         simulation_duration = time_module.time() - simulation_start
         total_duration = time_module.time() - start_time
